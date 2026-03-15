@@ -251,6 +251,10 @@ func NewEngine(name string, ag Agent, platforms []Platform, sessionStorePath str
 		eventIdleTimeout:  defaultEventIdleTimeout,
 	}
 
+	if ag != nil {
+		e.sessions.InvalidateForAgent(ag.Name())
+	}
+
 	if cp, ok := ag.(CommandProvider); ok {
 		e.commands.SetAgentDirs(cp.CommandDirs())
 	}
@@ -351,6 +355,13 @@ func (e *Engine) SetProviderAddSaveFunc(fn func(ProviderConfig) error) {
 
 func (e *Engine) SetProviderRemoveSaveFunc(fn func(string) error) {
 	e.providerRemoveSaveFunc = fn
+}
+
+// AddPlatform appends a platform to the engine after construction.
+// The platform is started and wired during the next Engine.Start call,
+// or if the engine is already running, it is started immediately.
+func (e *Engine) AddPlatform(p Platform) {
+	e.platforms = append(e.platforms, p)
 }
 
 func (e *Engine) SetCronScheduler(cs *CronScheduler) {
@@ -486,7 +497,11 @@ func (e *Engine) SetBannedWords(words []string) {
 }
 
 // SetRateLimitCfg configures per-session message rate limiting.
+// It stops the previous rate limiter's background goroutine before replacing it.
 func (e *Engine) SetRateLimitCfg(cfg RateLimitCfg) {
+	if e.rateLimiter != nil {
+		e.rateLimiter.Stop()
+	}
 	e.rateLimiter = NewRateLimiter(cfg.MaxMessages, cfg.Window)
 }
 
@@ -745,6 +760,10 @@ func (e *Engine) Stop() error {
 			slog.Debug("engine.Stop: closing agent session", "session", key)
 			state.agentSession.Close()
 		}
+	}
+
+	if e.rateLimiter != nil {
+		e.rateLimiter.Stop()
 	}
 
 	if err := e.agent.Stop(); err != nil {
@@ -1341,9 +1360,7 @@ func (e *Engine) getOrCreateInteractiveStateWith(sessionKey string, p Platform, 
 		// After /new or /switch the active session changes, but the old agent
 		// process may still be alive. Reusing it would send messages to the
 		// wrong conversation context.
-		session.mu.Lock()
-		wantID := session.AgentSessionID
-		session.mu.Unlock()
+		wantID := session.GetAgentSessionID()
 		currentID := state.agentSession.CurrentSessionID()
 		if wantID == "" || currentID == "" || wantID == currentID {
 			return state
@@ -1399,8 +1416,9 @@ func (e *Engine) getOrCreateInteractiveStateWith(sessionKey string, p Platform, 
 		return state
 	}
 
+	agentSID := session.GetAgentSessionID()
 	startAt := time.Now()
-	agentSession, err := agent.StartSession(e.ctx, session.AgentSessionID)
+	agentSession, err := agent.StartSession(e.ctx, agentSID)
 	startElapsed := time.Since(startAt)
 	if err != nil {
 		slog.Error("failed to start interactive session", "error", err, "elapsed", startElapsed)
@@ -1409,20 +1427,11 @@ func (e *Engine) getOrCreateInteractiveStateWith(sessionKey string, p Platform, 
 		return state
 	}
 	if startElapsed >= slowAgentStart {
-		slog.Warn("slow agent session start", "elapsed", startElapsed, "agent", agent.Name(), "session_id", session.AgentSessionID)
+		slog.Warn("slow agent session start", "elapsed", startElapsed, "agent", agent.Name(), "session_id", agentSID)
 	}
 
-	// Immediately capture the agent-side session ID so that if the agent
-	// process crashes before emitting its first session_id event we still
-	// have the binding. The relay path already does this (see HandleRelay);
-	// the interactive path was missing it, leaving a window where the local
-	// session could lose its agent binding.
 	if newID := agentSession.CurrentSessionID(); newID != "" {
-		session.mu.Lock()
-		if session.AgentSessionID == "" {
-			session.AgentSessionID = newID
-		}
-		session.mu.Unlock()
+		session.CompareAndSetAgentSessionID(newID, agent.Name())
 	}
 
 	state = &interactiveState{
@@ -1433,7 +1442,7 @@ func (e *Engine) getOrCreateInteractiveStateWith(sessionKey string, p Platform, 
 	}
 	e.interactiveStates[sessionKey] = state
 
-	slog.Info("interactive session started", "session_key", sessionKey, "agent_session", session.AgentSessionID, "elapsed", startElapsed)
+	slog.Info("interactive session started", "session_key", sessionKey, "agent_session", session.GetAgentSessionID(), "elapsed", startElapsed)
 	return state
 }
 
@@ -1627,17 +1636,12 @@ func (e *Engine) processInteractiveEvents(state *interactiveState, session *Sess
 				}
 			}
 			if event.SessionID != "" {
-				session.mu.Lock()
-				if session.AgentSessionID == "" {
-					session.AgentSessionID = event.SessionID
-					pendingName := session.Name
-					session.mu.Unlock()
+				if session.CompareAndSetAgentSessionID(event.SessionID, e.agent.Name()) {
+					pendingName := session.GetName()
 					if pendingName != "" && pendingName != "session" && pendingName != "default" {
 						e.sessions.SetSessionName(event.SessionID, pendingName)
 					}
 					e.sessions.Save()
-				} else {
-					session.mu.Unlock()
 				}
 			}
 
@@ -1721,9 +1725,7 @@ func (e *Engine) processInteractiveEvents(state *interactiveState, session *Sess
 
 		case EventResult:
 			if event.SessionID != "" {
-				session.mu.Lock()
-				session.AgentSessionID = event.SessionID
-				session.mu.Unlock()
+				session.SetAgentSessionID(event.SessionID, e.agent.Name())
 			}
 
 			fullResponse := event.Content
@@ -1740,7 +1742,7 @@ func (e *Engine) processInteractiveEvents(state *interactiveState, session *Sess
 			turnDuration := time.Since(turnStart)
 			slog.Info("turn complete",
 				"session", session.ID,
-				"agent_session", session.AgentSessionID,
+				"agent_session", session.GetAgentSessionID(),
 				"msg_id", msgID,
 				"tools", toolCount,
 				"response_len", len(fullResponse),
@@ -2212,7 +2214,7 @@ func (e *Engine) cmdList(p Platform, msg *Message, args []string) {
 
 		agentName := agent.Name()
 		activeSession := sessions.GetOrCreateActive(msg.SessionKey)
-		activeAgentID := activeSession.AgentSessionID
+		activeAgentID := activeSession.GetAgentSessionID()
 
 		var sb strings.Builder
 		if totalPages > 1 {
@@ -2294,7 +2296,7 @@ func (e *Engine) cmdSwitch(p Platform, msg *Message, args []string) {
 	slog.Info("cmdSwitch: cleanup done", "session_key", msg.SessionKey)
 
 	session := sessions.GetOrCreateActive(msg.SessionKey)
-	session.SetAgentInfo(matched.ID, matched.Summary)
+	session.SetAgentInfo(matched.ID, agent.Name(), matched.Summary)
 	session.ClearHistory()
 	sessions.Save()
 
@@ -2546,7 +2548,7 @@ func (e *Engine) cmdName(p Platform, msg *Message, args []string) {
 	} else {
 		// /name <name...> → current session
 		session := sessions.GetOrCreateActive(msg.SessionKey)
-		targetID = session.AgentSessionID
+		targetID = session.GetAgentSessionID()
 		if targetID == "" {
 			e.reply(p, msg.ReplyCtx, e.i18n.T(MsgNameNoSession))
 			return
@@ -2577,7 +2579,7 @@ func (e *Engine) cmdCurrent(p Platform, msg *Message) {
 			return
 		}
 		s := sessions.GetOrCreateActive(msg.SessionKey)
-		agentID := s.AgentSessionID
+		agentID := s.GetAgentSessionID()
 		if agentID == "" {
 			agentID = e.i18n.T(MsgSessionNotStarted)
 		}
@@ -2639,7 +2641,7 @@ func (e *Engine) cmdStatus(p Platform, msg *Message) {
 		modeStr += e.i18n.Tf(MsgStatusQuiet, quietStr)
 
 		s := sessions.GetOrCreateActive(msg.SessionKey)
-		sessionDisplayName := sessions.GetSessionName(s.AgentSessionID)
+		sessionDisplayName := sessions.GetSessionName(s.GetAgentSessionID())
 		if sessionDisplayName == "" {
 			sessionDisplayName = s.Name
 		}
@@ -3030,9 +3032,9 @@ func (e *Engine) renderStatusCard(sessionKey string) *Card {
 	modeStr += e.i18n.Tf(MsgStatusQuiet, quietStr)
 
 	s := sessions.GetOrCreateActive(sessionKey)
-	sessionDisplayName := sessions.GetSessionName(s.AgentSessionID)
+	sessionDisplayName := sessions.GetSessionName(s.GetAgentSessionID())
 	if sessionDisplayName == "" {
-		sessionDisplayName = s.Name
+		sessionDisplayName = s.GetName()
 	}
 	sessionStr := e.i18n.Tf(MsgStatusSession, sessionDisplayName, len(s.History))
 
@@ -3142,9 +3144,10 @@ func (e *Engine) cmdHistory(p Platform, msg *Message, args []string) {
 	}
 
 	entries := s.GetHistory(n)
-	if len(entries) == 0 && s.AgentSessionID != "" {
+	agentSID := s.GetAgentSessionID()
+	if len(entries) == 0 && agentSID != "" {
 		if hp, ok := agent.(HistoryProvider); ok {
-			if agentEntries, err := hp.GetSessionHistory(e.ctx, s.AgentSessionID, n); err == nil {
+			if agentEntries, err := hp.GetSessionHistory(e.ctx, agentSID, n); err == nil {
 				entries = agentEntries
 			}
 		}
@@ -3539,7 +3542,7 @@ func (e *Engine) cmdModel(p Platform, msg *Message, args []string) {
 	e.cleanupInteractiveState(msg.SessionKey)
 
 	s := e.sessions.GetOrCreateActive(msg.SessionKey)
-	s.AgentSessionID = ""
+	s.SetAgentSessionID("", "")
 	s.ClearHistory()
 	e.sessions.Save()
 
@@ -3620,7 +3623,7 @@ func (e *Engine) cmdReasoning(p Platform, msg *Message, args []string) {
 	e.cleanupInteractiveState(msg.SessionKey)
 
 	s := e.sessions.GetOrCreateActive(msg.SessionKey)
-	s.AgentSessionID = ""
+	s.SetAgentSessionID("", "")
 	s.ClearHistory()
 	e.sessions.Save()
 
@@ -4592,7 +4595,7 @@ func (e *Engine) executeCardAction(cmd, args, sessionKey string) {
 		switcher.SetModel(target)
 		e.cleanupInteractiveState(sessionKey)
 		s := e.sessions.GetOrCreateActive(sessionKey)
-		s.AgentSessionID = ""
+		s.SetAgentSessionID("", "")
 		s.ClearHistory()
 		e.sessions.Save()
 
@@ -4614,7 +4617,7 @@ func (e *Engine) executeCardAction(cmd, args, sessionKey string) {
 				switcher.SetReasoningEffort(target)
 				e.cleanupInteractiveState(sessionKey)
 				s := e.sessions.GetOrCreateActive(sessionKey)
-				s.AgentSessionID = ""
+				s.SetAgentSessionID("", "")
 				s.ClearHistory()
 				e.sessions.Save()
 				return
@@ -4710,7 +4713,7 @@ func (e *Engine) executeCardAction(cmd, args, sessionKey string) {
 		interactiveKey := e.interactiveKeyForSessionKey(sessionKey)
 		e.cleanupInteractiveState(interactiveKey)
 		session := sessions.GetOrCreateActive(sessionKey)
-		session.SetAgentInfo(matched.ID, matched.Summary)
+		session.SetAgentInfo(matched.ID, agent.Name(), matched.Summary)
 		session.ClearHistory()
 		sessions.Save()
 
@@ -4863,7 +4866,7 @@ func (e *Engine) renderDeleteModeSelectCard(sessionKey string, sessions *Session
 	}
 
 	cb := NewCard().Title(e.i18n.T(MsgDeleteModeTitle), "carmine")
-	activeAgentID := sessions.GetOrCreateActive(sessionKey).AgentSessionID
+	activeAgentID := sessions.GetOrCreateActive(sessionKey).GetAgentSessionID()
 	selectedCount := 0
 	for i := start; i < end; i++ {
 		s := agentSessions[i]
@@ -5244,7 +5247,7 @@ func (e *Engine) renderListCard(sessionKey string, page int) (*Card, error) {
 
 	agentName := agent.Name()
 	activeSession := sessions.GetOrCreateActive(sessionKey)
-	activeAgentID := activeSession.AgentSessionID
+	activeAgentID := activeSession.GetAgentSessionID()
 
 	var titleStr string
 	if totalPages > 1 {
@@ -5309,7 +5312,7 @@ func (e *Engine) renderListCard(sessionKey string, page int) (*Card, error) {
 func (e *Engine) renderCurrentCard(sessionKey string) *Card {
 	_, sessions := e.sessionContextForKey(sessionKey)
 	s := sessions.GetOrCreateActive(sessionKey)
-	agentID := s.AgentSessionID
+	agentID := s.GetAgentSessionID()
 	if agentID == "" {
 		agentID = e.i18n.T(MsgSessionNotStarted)
 	}
@@ -5326,9 +5329,10 @@ func (e *Engine) renderHistoryCard(sessionKey string) *Card {
 	s := sessions.GetOrCreateActive(sessionKey)
 	entries := s.GetHistory(10)
 
-	if len(entries) == 0 && s.AgentSessionID != "" {
+	agentSID := s.GetAgentSessionID()
+	if len(entries) == 0 && agentSID != "" {
 		if hp, ok := agent.(HistoryProvider); ok {
-			if agentEntries, err := hp.GetSessionHistory(e.ctx, s.AgentSessionID, 10); err == nil {
+			if agentEntries, err := hp.GetSessionHistory(e.ctx, agentSID, 10); err == nil {
 				entries = agentEntries
 			}
 		}
@@ -5738,7 +5742,7 @@ func (e *Engine) cmdCron(p Platform, msg *Message, args []string) {
 	}
 
 	sub := matchSubCommand(strings.ToLower(args[0]), []string{
-		"add", "addexec", "list", "del", "delete", "rm", "remove", "enable", "disable",
+		"add", "addexec", "list", "del", "delete", "rm", "remove", "enable", "disable", "setup",
 	})
 	switch sub {
 	case "add":
@@ -5753,6 +5757,8 @@ func (e *Engine) cmdCron(p Platform, msg *Message, args []string) {
 		e.cmdCronToggle(p, msg, args[1:], true)
 	case "disable":
 		e.cmdCronToggle(p, msg, args[1:], false)
+	case "setup":
+		e.cmdCronSetup(p, msg)
 	default:
 		e.reply(p, msg.ReplyCtx, e.i18n.T(MsgCronUsage))
 	}
@@ -5910,6 +5916,22 @@ func (e *Engine) cmdCronToggle(p Platform, msg *Message, args []string, enable b
 		e.reply(p, msg.ReplyCtx, fmt.Sprintf(e.i18n.T(MsgCronEnabled), id))
 	} else {
 		e.reply(p, msg.ReplyCtx, fmt.Sprintf(e.i18n.T(MsgCronDisabled), id))
+	}
+}
+
+func (e *Engine) cmdCronSetup(p Platform, msg *Message) {
+	result, baseName, err := e.setupMemoryFile()
+	switch result {
+	case setupNative:
+		e.reply(p, msg.ReplyCtx, e.i18n.T(MsgSetupNative))
+	case setupNoMemory:
+		e.reply(p, msg.ReplyCtx, e.i18n.T(MsgRelaySetupNoMemory))
+	case setupExists:
+		e.reply(p, msg.ReplyCtx, fmt.Sprintf(e.i18n.T(MsgRelaySetupExists), baseName))
+	case setupError:
+		e.reply(p, msg.ReplyCtx, fmt.Sprintf("❌ %v", err))
+	case setupOK:
+		e.reply(p, msg.ReplyCtx, fmt.Sprintf(e.i18n.T(MsgCronSetupOK), baseName))
 	}
 }
 
@@ -6930,7 +6952,7 @@ func (e *Engine) deleteSingleSessionReply(msg *Message, deleter SessionDeleter, 
 	// Prevent deleting the currently active session
 	_, sessions := e.sessionContextForKey(msg.SessionKey)
 	activeSession := sessions.GetOrCreateActive(msg.SessionKey)
-	if activeSession.AgentSessionID == matched.ID {
+	if activeSession.GetAgentSessionID() == matched.ID {
 		return e.i18n.T(MsgDeleteActiveDenied)
 	}
 
@@ -7070,13 +7092,13 @@ func (e *Engine) HandleRelay(ctx context.Context, fromProject, chatID, message s
 		inj.SetSessionEnv(envVars)
 	}
 
-	agentSession, err := e.agent.StartSession(ctx, session.AgentSessionID)
+	agentSession, err := e.agent.StartSession(ctx, session.GetAgentSessionID())
 	if err != nil {
 		return "", fmt.Errorf("start relay session: %w", err)
 	}
 	defer agentSession.Close()
 
-	if session.CompareAndSetAgentSessionID(agentSession.CurrentSessionID()) {
+	if session.CompareAndSetAgentSessionID(agentSession.CurrentSessionID(), e.agent.Name()) {
 		e.sessions.Save()
 	}
 
@@ -7095,13 +7117,13 @@ func (e *Engine) HandleRelay(ctx context.Context, fromProject, chatID, message s
 				textParts = append(textParts, event.Content)
 			}
 			if event.SessionID != "" {
-				if session.CompareAndSetAgentSessionID(event.SessionID) {
+				if session.CompareAndSetAgentSessionID(event.SessionID, e.agent.Name()) {
 					e.sessions.Save()
 				}
 			}
 		case EventResult:
 			if event.SessionID != "" {
-				session.SetAgentSessionID(event.SessionID)
+				session.SetAgentSessionID(event.SessionID, e.agent.Name())
 				e.sessions.Save()
 			}
 			resp := event.Content
@@ -7250,44 +7272,72 @@ func (e *Engine) cmdBindStatus(p Platform, replyCtx any, chatID string) {
 
 const ccConnectInstructionMarker = "<!-- cc-connect-instructions -->"
 
-func (e *Engine) cmdBindSetup(p Platform, msg *Message) {
+type setupResult int
+
+const (
+	setupOK       setupResult = iota // instructions written successfully
+	setupExists                      // instructions already present
+	setupNative                      // agent supports system prompt natively
+	setupNoMemory                    // agent has no memory file support
+	setupError                       // write error
+)
+
+// setupMemoryFile appends AgentSystemPrompt() to the agent's project memory
+// file. It returns the result, the filename (for messages), and any error.
+func (e *Engine) setupMemoryFile() (setupResult, string, error) {
+	if _, ok := e.agent.(SystemPromptSupporter); ok {
+		return setupNative, "", nil
+	}
+
 	mp, ok := e.agent.(MemoryFileProvider)
 	if !ok {
-		e.reply(p, msg.ReplyCtx, e.i18n.T(MsgRelaySetupNoMemory))
-		return
+		return setupNoMemory, "", nil
 	}
 
 	filePath := mp.ProjectMemoryFile()
 	if filePath == "" {
-		e.reply(p, msg.ReplyCtx, e.i18n.T(MsgRelaySetupNoMemory))
-		return
+		return setupNoMemory, "", nil
 	}
+
+	baseName := filepath.Base(filePath)
 
 	existing, _ := os.ReadFile(filePath)
 	if strings.Contains(string(existing), ccConnectInstructionMarker) {
-		e.reply(p, msg.ReplyCtx, fmt.Sprintf(e.i18n.T(MsgRelaySetupExists), filepath.Base(filePath)))
-		return
+		return setupExists, baseName, nil
 	}
 
 	if err := os.MkdirAll(filepath.Dir(filePath), 0o755); err != nil {
-		e.reply(p, msg.ReplyCtx, fmt.Sprintf("❌ %v", err))
-		return
+		return setupError, baseName, err
 	}
 
 	f, err := os.OpenFile(filePath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o644)
 	if err != nil {
-		e.reply(p, msg.ReplyCtx, fmt.Sprintf("❌ %v", err))
-		return
+		return setupError, baseName, err
 	}
 	defer f.Close()
 
 	block := "\n" + ccConnectInstructionMarker + "\n" + AgentSystemPrompt() + "\n"
 	if _, err := f.WriteString(block); err != nil {
-		e.reply(p, msg.ReplyCtx, fmt.Sprintf("❌ %v", err))
-		return
+		return setupError, baseName, err
 	}
 
-	e.reply(p, msg.ReplyCtx, fmt.Sprintf(e.i18n.T(MsgRelaySetupOK), filepath.Base(filePath)))
+	return setupOK, baseName, nil
+}
+
+func (e *Engine) cmdBindSetup(p Platform, msg *Message) {
+	result, baseName, err := e.setupMemoryFile()
+	switch result {
+	case setupNative:
+		e.reply(p, msg.ReplyCtx, e.i18n.T(MsgSetupNative))
+	case setupNoMemory:
+		e.reply(p, msg.ReplyCtx, e.i18n.T(MsgRelaySetupNoMemory))
+	case setupExists:
+		e.reply(p, msg.ReplyCtx, fmt.Sprintf(e.i18n.T(MsgRelaySetupExists), baseName))
+	case setupError:
+		e.reply(p, msg.ReplyCtx, fmt.Sprintf("❌ %v", err))
+	case setupOK:
+		e.reply(p, msg.ReplyCtx, fmt.Sprintf(e.i18n.T(MsgRelaySetupOK), baseName))
+	}
 }
 
 func extractChannelID(sessionKey string) string {
