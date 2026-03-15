@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(grep -A 30 \"type Event struct\" /c/Users/18317/DevSpace/cc-connect/core/*.go | head -100)",
+      "Bash(ls -la /c/Users/18317/DevSpace/cc-connect/core/*.go | head -20)",
+      "Bash(wc -l /c/Users/18317/DevSpace/cc-connect/agent/gemini/gemini.go /c/Users/18317/DevSpace/cc-connect/agent/gemini/*.go 2>/dev/null | tail -1)",
+      "Bash(go test:*)",
+      "Bash(go build:*)"
+    ]
+  }
+}
