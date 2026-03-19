@@ -21,9 +21,6 @@
 </p>
 
 <p align="center">
-  <a href="https://discord.gg/kHpwgaM4kq">
-    <img src="https://img.shields.io/badge/Discord-Join-5865F2?logo=discord&logoColor=white" alt="Discord"/>
-  </a>
   <a href="https://t.me/+odGNDhCjbjdmMmZl">
     <img src="https://img.shields.io/badge/Telegram-Group-26A5E4?logo=telegram&logoColor=white" alt="Telegram"/>
   </a>
@@ -36,11 +33,11 @@
 ---
 
 <p align="center">
-  <b>在任何聊天工具里，远程操控你的本地 AI Agent。随时随地，随心所欲。</b>
+  <b>在 Telegram 里，远程操控你的本地 AI Agent。随时随地，随心所欲。</b>
 </p>
 
 <p align="center">
-  cc-connect 把运行在你机器上的 AI Agent 桥接到你日常使用的即时通讯工具。<br/>
+  cc-connect 把运行在你机器上的 AI Agent 桥接到 Telegram。<br/>
   代码审查、资料研究、自动化任务、数据分析 —— 只要 AI Agent 能做的事，<br/>
   都能通过手机、平板或任何有聊天应用的设备来完成。
 </p>
@@ -54,16 +51,16 @@
 ## ✨ 为什么选择 cc-connect？
 
 ### 🤖 通用 Agent 支持
-**7 大 AI Agent** — Claude Code、Codex、Cursor Agent、Qoder CLI、Gemini CLI、OpenCode、iFlow CLI。按需选用，或同时使用全部。
+**2 大 AI Agent** — Claude Code、Gemini CLI。按需选用，或同时使用全部。
 
-### 📱 平台灵活性
-**9 大聊天平台** — 飞书、钉钉、Slack、Telegram、Discord、企业微信、LINE、QQ、QQ 官方机器人。大部分**无需公网 IP**。
+### 📱 简单可靠
+**Telegram 平台** — 无需公网 IP，稳定的长轮询连接。
 
 ### 🔄 多 Agent 编排
 **多机器人中继** — 在群聊中绑定多个机器人，让它们相互协作。问 Claude，再听 Gemini 的见解 — 同一个对话搞定。
 
 ### 🎮 完整的聊天控制
-**聊天即控制** — 切换模型 (`/model`)、切换推理强度 (`/reasoning`)、切换权限模式 (`/mode`)、管理会话，全部通过斜杠命令完成。
+**聊天即控制** — 切换模型 (`/model`)、切换权限模式 (`/mode`)、管理会话，全部通过斜杠命令完成。
 
 ### 🧠 持久化记忆
 **Agent 记忆** — 在聊天中直接读写 Agent 指令文件 (`/memory`)，无需回到终端。
@@ -79,17 +76,6 @@
 
 ### 🌍 多语言界面
 **5 种语言** — 原生支持英语、中文（简体/繁体）、日语和西班牙语。内置 i18n 让每个人都能得心应手。
-
----
-
-<p align="center">
-  <img src="docs/images/screenshot/cc-connect-lark.JPG" alt="飞书" width="32%" />
-  <img src="docs/images/screenshot/cc-connect-telegram.JPG" alt="Telegram" width="32%" />
-  <img src="docs/images/screenshot/cc-connect-wechat.JPG" alt="微信" width="32%" />
-</p>
-<p align="center">
-  <em>左：飞书 &nbsp;|&nbsp; Telegram &nbsp;|&nbsp; 右：微信</em>
-</p>
 
 ---
 
@@ -175,23 +161,8 @@ cc-connect update --pre     # Beta 版（含 pre-release）
 | 组件 | 类型 | 状态 |
 |------|------|------|
 | Agent | Claude Code | ✅ 已支持 |
-| Agent | Codex (OpenAI) | ✅ 已支持 |
-| Agent | Cursor Agent | ✅ 已支持 |
 | Agent | Gemini CLI (Google) | ✅ 已支持 |
-| Agent | Qoder CLI | ✅ 已支持 |
-| Agent | OpenCode (Crush) | ✅ 已支持 |
-| Agent | iFlow CLI | ✅ 已支持 |
-| Agent | Goose (Block) | 🔜 计划中 |
-| Agent | Aider | 🔜 计划中 |
-| Platform | 飞书 (Lark) | ✅ WebSocket — 无需公网 IP |
-| Platform | 钉钉 | ✅ Stream — 无需公网 IP |
 | Platform | Telegram | ✅ Long Polling — 无需公网 IP |
-| Platform | Slack | ✅ Socket Mode — 无需公网 IP |
-| Platform | Discord | ✅ Gateway — 无需公网 IP |
-| Platform | LINE | ✅ Webhook — 需要公网 URL |
-| Platform | 企业微信 | ✅ WebSocket / Webhook |
-| Platform | QQ (NapCat/OneBot) | ✅ WebSocket — Beta |
-| Platform | QQ 官方机器人 | ✅ WebSocket — 无需公网 IP |
 
 ---
 
@@ -199,13 +170,7 @@ cc-connect update --pre     # Beta 版（含 pre-release）
 
 | 平台 | 指南 | 连接方式 | 需要公网 IP? |
 |------|------|---------|-------------|
-| 飞书 (Lark) | [docs/feishu.md](docs/feishu.md) | WebSocket | 不需要 |
-| 钉钉 | [docs/dingtalk.md](docs/dingtalk.md) | Stream | 不需要 |
 | Telegram | [docs/telegram.md](docs/telegram.md) | Long Polling | 不需要 |
-| Slack | [docs/slack.md](docs/slack.md) | Socket Mode | 不需要 |
-| Discord | [docs/discord.md](docs/discord.md) | Gateway | 不需要 |
-| 企业微信 | [docs/wecom.md](docs/wecom.md) | WebSocket / Webhook | 不需要 (WS) / 需要 (Webhook) |
-| QQ / QQ 机器人 | [docs/qq.md](docs/qq.md) | WebSocket | 不需要 |
 
 ---
 
@@ -260,8 +225,7 @@ cc-connect update --pre     # Beta 版（含 pre-release）
 
 当 Agent 在本地生成了截图、图表、PDF、日志包等文件时，可以主动把附件发回当前聊天。
 
-首版支持：
-- 飞书
+支持的平台：
 - Telegram
 
 如果当前 Agent 不是原生注入 system prompt 的类型，升级后请先在聊天里执行一次：
@@ -298,7 +262,7 @@ cc-connect send --file /absolute/path/to/report.pdf --image /absolute/path/to/ch
 - 使用绝对路径最稳妥。
 - `--image` 和 `--file` 都可以重复传多个。
 - `attachment_send = "off"` 只会关闭附件回传，普通文本回复仍然正常。
-- 这个命令是给“生成后的附件回传”用的，不是给普通文本回复用的。
+- 这个命令是给"生成后的附件回传"用的，不是给普通文本回复用的。
 
 📖 **完整文档：** [docs/usage.zh-CN.md](docs/usage.zh-CN.md)
 
@@ -314,7 +278,6 @@ cc-connect send --file /absolute/path/to/report.pdf --image /absolute/path/to/ch
 
 ## 👥 社区
 
-- [Discord](https://discord.gg/kHpwgaM4kq)
 - [Telegram](https://t.me/+odGNDhCjbjdmMmZl)
 
 ---

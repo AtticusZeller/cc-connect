@@ -21,9 +21,6 @@
 </p>
 
 <p align="center">
-  <a href="https://discord.gg/kHpwgaM4kq">
-    <img src="https://img.shields.io/badge/Discord-Join-5865F2?logo=discord&logoColor=white" alt="Discord"/>
-  </a>
   <a href="https://t.me/+odGNDhCjbjdmMmZl">
     <img src="https://img.shields.io/badge/Telegram-Group-26A5E4?logo=telegram&logoColor=white" alt="Telegram"/>
   </a>
@@ -36,11 +33,11 @@
 ---
 
 <p align="center">
-  <b>Control your local AI agents from any chat app. Anywhere, anytime.</b>
+  <b>Control your local AI agents from Telegram. Anywhere, anytime.</b>
 </p>
 
 <p align="center">
-  cc-connect bridges AI agents running on your machine to the messaging platforms you already use.<br/>
+  cc-connect bridges AI agents running on your machine to Telegram.<br/>
   Code review, research, automation, data analysis — anything an AI agent can do,<br/>
   now accessible from your phone, tablet, or any device with a chat app.
 </p>
@@ -54,16 +51,16 @@
 ## ✨ Why cc-connect?
 
 ### 🤖 Universal Agent Support
-**7 AI Agents** — Claude Code, Codex, Cursor Agent, Qoder CLI, Gemini CLI, OpenCode, iFlow CLI. Use whichever fits your workflow, or all of them at once.
+**2 AI Agents** — Claude Code, Gemini CLI. Use whichever fits your workflow, or both at once.
 
-### 📱 Platform Flexibility
-**9 Chat Platforms** — Feishu, DingTalk, Slack, Telegram, Discord, WeChat Work, LINE, QQ, QQ Bot (Official). Most need **zero public IP**.
+### 📱 Simple & Reliable
+**Telegram Platform** — No public IP required, reliable long polling connection.
 
 ### 🔄 Multi-Agent Orchestration
 **Multi-Bot Relay** — Bind multiple bots in a group chat and let them communicate with each other. Ask Claude, get insights from Gemini — all in one conversation.
 
 ### 🎮 Complete Chat Control
-**Full Control from Chat** — Switch models (`/model`), tune reasoning (`/reasoning`), change permission modes (`/mode`), manage sessions, all via slash commands.
+**Full Control from Chat** — Switch models (`/model`), change permission modes (`/mode`), manage sessions, all via slash commands.
 
 ### 🧠 Persistent Memory
 **Agent Memory** — Read and write agent instruction files (`/memory`) without touching the terminal.
@@ -79,17 +76,6 @@
 
 ### 🌍 Multilingual Interface
 **5 Languages** — Native support for English, Chinese (Simplified & Traditional), Japanese, and Spanish. Built-in i18n ensures everyone feels at home.
-
----
-
-<p align="center">
-  <img src="docs/images/screenshot/cc-connect-lark.JPG" alt="飞书" width="32%" />
-  <img src="docs/images/screenshot/cc-connect-telegram.JPG" alt="Telegram" width="32%" />
-  <img src="docs/images/screenshot/cc-connect-wechat.JPG" alt="微信" width="32%" />
-</p>
-<p align="center">
-  <em>Left：Lark &nbsp;|&nbsp; Telegram &nbsp;|&nbsp; Right：Wechat</em>
-</p>
 
 ---
 
@@ -175,23 +161,8 @@ cc-connect update --pre     # Beta (includes pre-releases)
 | Component | Type | Status |
 |-----------|------|--------|
 | Agent | Claude Code | ✅ Supported |
-| Agent | Codex (OpenAI) | ✅ Supported |
-| Agent | Cursor Agent | ✅ Supported |
 | Agent | Gemini CLI (Google) | ✅ Supported |
-| Agent | Qoder CLI | ✅ Supported |
-| Agent | OpenCode (Crush) | ✅ Supported |
-| Agent | iFlow CLI | ✅ Supported |
-| Agent | Goose (Block) | 🔜 Planned |
-| Agent | Aider | 🔜 Planned |
-| Platform | Feishu (Lark) | ✅ WebSocket — no public IP needed |
-| Platform | DingTalk | ✅ Stream — no public IP needed |
 | Platform | Telegram | ✅ Long Polling — no public IP needed |
-| Platform | Slack | ✅ Socket Mode — no public IP needed |
-| Platform | Discord | ✅ Gateway — no public IP needed |
-| Platform | LINE | ✅ Webhook — public URL required |
-| Platform | WeChat Work | ✅ WebSocket / Webhook |
-| Platform | QQ (NapCat/OneBot) | ✅ WebSocket — Beta |
-| Platform | QQ Bot (Official) | ✅ WebSocket — no public IP needed |
 
 ---
 
@@ -199,13 +170,7 @@ cc-connect update --pre     # Beta (includes pre-releases)
 
 | Platform | Guide | Connection | Public IP? |
 |----------|-------|------------|------------|
-| Feishu (Lark) | [docs/feishu.md](docs/feishu.md) | WebSocket | No |
-| DingTalk | [docs/dingtalk.md](docs/dingtalk.md) | Stream | No |
 | Telegram | [docs/telegram.md](docs/telegram.md) | Long Polling | No |
-| Slack | [docs/slack.md](docs/slack.md) | Socket Mode | No |
-| Discord | [docs/discord.md](docs/discord.md) | Gateway | No |
-| WeChat Work | [docs/wecom.md](docs/wecom.md) | WebSocket / Webhook | No (WS) / Yes (Webhook) |
-| QQ / QQ Bot | [docs/qq.md](docs/qq.md) | WebSocket | No |
 
 ---
 
@@ -260,11 +225,10 @@ cc-connect update --pre     # Beta (includes pre-releases)
 
 When an agent generates a local screenshot, chart, PDF, bundle, or other file, it can send that attachment back to the current chat.
 
-First release supports:
-- Feishu
+Supported platforms:
 - Telegram
 
-If your agent does not natively inject the system prompt, run this once in chat after upgrading:
+If your agent does not natively inject a system prompt, run this once in chat after upgrading:
 
 ```text
 /bind setup
@@ -314,7 +278,6 @@ Notes:
 
 ## 👥 Community
 
-- [Discord](https://discord.gg/kHpwgaM4kq)
 - [Telegram](https://t.me/+odGNDhCjbjdmMmZl)
 
 ---
