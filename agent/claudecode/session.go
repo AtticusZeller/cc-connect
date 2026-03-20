@@ -17,7 +17,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/chenhg5/cc-connect/core"
+	"github.com/AtticusZeller/cc-connect/core"
 )
 
 // claudeSession manages a long-running Claude Code process using

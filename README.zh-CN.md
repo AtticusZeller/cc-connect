@@ -3,20 +3,20 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/chenhg5/cc-connect/actions/workflows/ci.yml">
-    <img src="https://github.com/chenhg5/cc-connect/actions/workflows/ci.yml/badge.svg" alt="CI Status"/>
+  <a href="https://github.com/AtticusZeller/cc-connect/actions/workflows/ci.yml">
+    <img src="https://github.com/AtticusZeller/cc-connect/actions/workflows/ci.yml/badge.svg" alt="CI Status"/>
   </a>
-  <a href="https://github.com/chenhg5/cc-connect/releases">
+  <a href="https://github.com/AtticusZeller/cc-connect/releases">
     <img src="https://img.shields.io/github/v/release/chenhg5/cc-connect?include_prereleases" alt="Release"/>
   </a>
   <a href="https://www.npmjs.com/package/cc-connect">
     <img src="https://img.shields.io/npm/dm/cc-connect?logo=npm" alt="npm downloads"/>
   </a>
-  <a href="https://github.com/chenhg5/cc-connect/blob/main/LICENSE">
+  <a href="https://github.com/AtticusZeller/cc-connect/blob/main/LICENSE">
     <img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="License"/>
   </a>
-  <a href="https://goreportcard.com/report/github.com/chenhg5/cc-connect">
-    <img src="https://goreportcard.com/badge/github.com/chenhg5/cc-connect" alt="Go Report Card"/>
+  <a href="https://goreportcard.com/report/github.com/AtticusZeller/cc-connect">
+    <img src="https://goreportcard.com/badge/github.com/AtticusZeller/cc-connect" alt="Go Report Card"/>
   </a>
 </p>
 
@@ -103,22 +103,22 @@ npm install -g cc-connect
 npm install -g cc-connect@beta
 ```
 
-**从 [GitHub Releases](https://github.com/chenhg5/cc-connect/releases) 下载：**
+**从 [GitHub Releases](https://github.com/AtticusZeller/cc-connect/releases) 下载：**
 
 ```bash
 # Linux amd64 - 稳定版
-curl -L -o cc-connect https://github.com/chenhg5/cc-connect/releases/latest/download/cc-connect-linux-amd64
+curl -L -o cc-connect https://github.com/AtticusZeller/cc-connect/releases/latest/download/cc-connect-linux-amd64
 chmod +x cc-connect
 sudo mv cc-connect /usr/local/bin/
 
 # Beta 版（从 pre-release 下载）
-curl -L -o cc-connect https://github.com/chenhg5/cc-connect/releases/download/v1.x.x-beta/cc-connect-linux-amd64
+curl -L -o cc-connect https://github.com/AtticusZeller/cc-connect/releases/download/v1.x.x-beta/cc-connect-linux-amd64
 ```
 
 **从源码编译（需要 Go 1.22+）：**
 
 ```bash
-git clone https://github.com/chenhg5/cc-connect.git
+git clone https://github.com/AtticusZeller/cc-connect.git
 cd cc-connect
 make build
 ```
@@ -284,7 +284,7 @@ cc-connect send --file /absolute/path/to/report.pdf --image /absolute/path/to/ch
 
 ## 🙏 贡献者
 
-<a href="https://github.com/chenhg5/cc-connect/graphs/contributors">
+<a href="https://github.com/AtticusZeller/cc-connect/graphs/contributors">
   <img src="https://contrib.rocks/image?repo=chenhg5/cc-connect&v=20250313" />
 </a>
 

@@ -14,7 +14,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/chenhg5/cc-connect/core"
+	"github.com/AtticusZeller/cc-connect/core"
 )
 
 func runSend(args []string) {

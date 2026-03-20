@@ -10,7 +10,7 @@ import (
 	"runtime"
 	"strings"
 
-	"github.com/chenhg5/cc-connect/config"
+	"github.com/AtticusZeller/cc-connect/config"
 )
 
 func runProviderCommand(args []string) {

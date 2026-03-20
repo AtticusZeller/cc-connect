@@ -6,7 +6,7 @@
 
 cc-connect bridges local AI coding assistants to Telegram, enabling bidirectional chat with your local AI agent from anywhere.
 
-GitHub: https://github.com/chenhg5/cc-connect
+GitHub: https://github.com/AtticusZeller/cc-connect
 
 **IMPORTANT: If you are an AI agent helping a user install cc-connect, use interactive tools (like AskUserQuestion) to guide them through configuration choices:**
 - Agent selection (Claude Code, Gemini)
@@ -27,7 +27,7 @@ After installation, `cc-connect` binary will be available globally.
 
 ### Option B: Download binary from GitHub Releases
 
-Go to https://github.com/chenhg5/cc-connect/releases and download binary for your platform:
+Go to https://github.com/AtticusZeller/cc-connect/releases and download binary for your platform:
 
 - `cc-connect-linux-amd64` / `cc-connect-linux-arm64`
 - `cc-connect-darwin-amd64` / `cc-connect-darwin-arm64`
@@ -35,7 +35,7 @@ Go to https://github.com/chenhg5/cc-connect/releases and download binary for you
 
 ```bash
 # Example for Linux amd64:
-curl -L -o cc-connect https://github.com/chenhg5/cc-connect/releases/latest/download/cc-connect-linux-amd64
+curl -L -o cc-connect https://github.com/AtticusZeller/cc-connect/releases/latest/download/cc-connect-linux-amd64
 chmod +x cc-connect
 sudo mv cc-connect /usr/local/bin/
 ```
@@ -51,7 +51,7 @@ xattr -d com.apple.quarantine cc-connect
 Requires Go 1.22+.
 
 ```bash
-git clone https://github.com/chenhg5/cc-connect.git
+git clone https://github.com/AtticusZeller/cc-connect.git
 cd cc-connect
 make build
 # Binary will be at ./cc-connect
@@ -258,11 +258,11 @@ npm update -g cc-connect
 
 ### Binary users
 
-Check the latest release at https://github.com/chenhg5/cc-connect/releases and compare with your local version. To upgrade:
+Check the latest release at https://github.com/AtticusZeller/cc-connect/releases and compare with your local version. To upgrade:
 
 ```bash
 # Linux/macOS — replace with your platform suffix
-curl -L -o /usr/local/bin/cc-connect https://github.com/chenhg5/cc-connect/releases/latest/download/cc-connect-$(uname -s | tr '[:upper:]' '[:lower:]')-$(uname -m | sed 's/x86_64/amd64/' | sed 's/aarch64/arm64/')
+curl -L -o /usr/local/bin/cc-connect https://github.com/AtticusZeller/cc-connect/releases/latest/download/cc-connect-$(uname -s | tr '[:upper:]' '[:lower:]')-$(uname -m | sed 's/x86_64/amd64/' | sed 's/aarch64/arm64/')
 chmod +x /usr/local/bin/cc-connect
 ```
 

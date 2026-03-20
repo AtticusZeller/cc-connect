@@ -15,10 +15,10 @@ import (
 	"syscall"
 	"time"
 
-	ccconnect "github.com/chenhg5/cc-connect"
-	"github.com/chenhg5/cc-connect/config"
-	"github.com/chenhg5/cc-connect/core"
-	"github.com/chenhg5/cc-connect/daemon"
+	ccconnect "github.com/AtticusZeller/cc-connect"
+	"github.com/AtticusZeller/cc-connect/config"
+	"github.com/AtticusZeller/cc-connect/core"
+	"github.com/AtticusZeller/cc-connect/daemon"
 	// Agent and platform imports are in separate plugin_*.go files
 	// controlled by build tags. See Makefile for selective compilation.
 )
@@ -737,7 +737,7 @@ func bootstrapConfig(path string) error {
 	}
 
 	const tmpl = `# cc-connect configuration
-# Docs: https://github.com/chenhg5/cc-connect
+# Docs: https://github.com/AtticusZeller/cc-connect
 
 [log]
 level = "info"
@@ -764,7 +764,7 @@ app_id = "your-feishu-app-id"
 app_secret = "your-feishu-app-secret"
 
 # For more platforms (DingTalk, Telegram, Slack, Discord, LINE, WeChat Work)
-# see: https://github.com/chenhg5/cc-connect/blob/main/config.example.toml
+# see: https://github.com/AtticusZeller/cc-connect/blob/main/config.example.toml
 `
 	return os.WriteFile(path, []byte(tmpl), 0o644)
 }
@@ -789,8 +789,8 @@ func printUsage() {
   Supports: Claude Code, Codex, Cursor, Gemini CLI, Qoder CLI, OpenCode
   Platforms: Feishu, Telegram, Slack, DingTalk, Discord, LINE, WeChat Work, QQ, QQ Bot
 
-  GitHub:  https://github.com/chenhg5/cc-connect
-  Docs:    https://github.com/chenhg5/cc-connect/blob/main/INSTALL.md
+  GitHub:  https://github.com/AtticusZeller/cc-connect
+  Docs:    https://github.com/AtticusZeller/cc-connect/blob/main/INSTALL.md
 
 Usage:
   cc-connect [flags]
