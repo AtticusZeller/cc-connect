@@ -402,7 +402,20 @@ func (gs *geminiSession) handleResult(raw map[string]any) {
 			return
 		}
 	} else {
-		evt := core.Event{Type: core.EventResult, SessionID: sid, Done: true}
+		// Extract stats for successful sessions
+		var content string
+		statsObj, hasStats := raw["stats"].(map[string]any)
+		if hasStats {
+			// Format stats as compact JSON for Event.Content
+			if statsJSON, err := json.Marshal(statsObj); err == nil {
+				content = fmt.Sprintf("Stats: %s", string(statsJSON))
+				slog.Debug("geminiSession: result stats", "stats", string(statsJSON))
+			} else {
+				slog.Warn("geminiSession: failed to marshal stats", "error", err)
+			}
+		}
+
+		evt := core.Event{Type: core.EventResult, Content: content, SessionID: sid, Done: true}
 		select {
 		case gs.events <- evt:
 		case <-gs.ctx.Done():
