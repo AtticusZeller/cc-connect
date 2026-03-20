@@ -1,17 +1,12 @@
 {
   "name": "@atticux/cc-connect",
-  "version": "1.2.2-beta.3",
-  "description": "Bridge local AI coding agents (Claude Code, Cursor, Gemini CLI) to messaging platforms (Feishu, DingTalk, Slack, Telegram, Discord, LINE, WeChat Work)",
+  "version": "1.2.2-beta.4",
+  "description": "Bridge local AI coding agents (Claude Code, Gemini CLI) to Telegram",
   "keywords": [
     "claude-code",
-    "ai-coding",
-    "feishu",
-    "dingtalk",
-    "slack",
+    "gemini",
     "telegram",
-    "discord",
-    "line",
-    "wechat-work",
+    "ai-coding",
     "chatbot",
     "bridge"
   ],

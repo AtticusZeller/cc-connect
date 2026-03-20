@@ -8,10 +8,8 @@ Complete guide to using cc-connect features.
 - [Permission Modes](#permission-modes)
 - [API Provider Management](#api-provider-management)
 - [Model Selection](#model-selection)
-- [Feishu Setup CLI](#feishu-setup-cli)
 - [Claude Code Router Integration](#claude-code-router-integration)
 - [Voice Messages (STT)](#voice-messages-speech-to-text)
-- [Voice Reply (TTS)](#voice-reply-text-to-speech)
 - [Image and File Send-Back](#image-and-file-send-back)
 - [Scheduled Tasks (Cron)](#scheduled-tasks-cron)
 - [Multi-Bot Relay](#multi-bot-relay)
@@ -36,7 +34,6 @@ Each user gets an independent session with full conversation context. Manage ses
 | `/provider [...]` | Manage API providers |
 | `/model [alias]` | List available models or switch by alias |
 | `/allow <tool>` | Pre-allow a tool (next session) |
-| `/reasoning [level]` | View or switch reasoning effort (Codex) |
 | `/mode [name]` | View or switch permission mode |
 | `/quiet` | Toggle thinking/tool progress messages |
 | `/stop` | Stop current execution |
@@ -59,24 +56,6 @@ All agents support permission modes switchable at runtime via `/mode`.
 | Plan Mode | `plan` | Claude only plans, no execution |
 | YOLO | `bypassPermissions` / `yolo` | All tools auto-approved |
 
-### Codex Modes
-
-| Mode | Config Value | Behavior |
-|------|-------------|----------|
-| Suggest | `suggest` | Only trusted commands run without approval |
-| Auto Edit | `auto-edit` | Model decides when to ask |
-| Full Auto | `full-auto` | Auto-approve with sandbox |
-| YOLO | `yolo` | Bypass all approvals and sandbox |
-
-### Cursor Agent Modes
-
-| Mode | Config Value | Behavior |
-|------|-------------|----------|
-| Default | `default` | Trust workspace, ask before tools |
-| Force (YOLO) | `force` / `yolo` | Auto-approve all |
-| Plan | `plan` | Read-only analysis |
-| Ask | `ask` | Q&A style, read-only |
-
 ### Gemini CLI Modes
 
 | Mode | Config Value | Behavior |
@@ -85,13 +64,6 @@ All agents support permission modes switchable at runtime via `/mode`.
 | Auto Edit | `auto_edit` / `edit` | Auto-approve edits |
 | YOLO | `yolo` | Auto-approve all |
 | Plan | `plan` | Read-only plan mode |
-
-### Qoder CLI / OpenCode / iFlow CLI
-
-| Mode | Config Value | Behavior |
-|------|-------------|----------|
-| Default | `default` | Standard permissions |
-| YOLO | `yolo` | Skip all checks |
 
 ### Configuration
 
@@ -181,10 +153,7 @@ cc-connect provider import --project my-backend  # from cc-switch
 | Agent | api_key → | base_url → |
 |-------|-----------|------------|
 | Claude Code | `ANTHROPIC_API_KEY` | `ANTHROPIC_BASE_URL` |
-| Codex | `OPENAI_API_KEY` | `OPENAI_BASE_URL` |
 | Gemini CLI | `GEMINI_API_KEY` | use `env` map |
-| OpenCode | `ANTHROPIC_API_KEY` | use `env` map |
-| iFlow CLI | `IFLOW_API_KEY` | `IFLOW_BASE_URL` |
 
 ---
 
@@ -196,20 +165,16 @@ Pre-configure a list of selectable models per provider using `[[providers.models
 
 ```toml
 [[projects.agent.providers]]
-name = "openai"
+name = "anthropic"
 api_key = "sk-xxx"
 
 [[projects.agent.providers.models]]
-model = "gpt-5.3-codex"
-alias = "codex"
+model = "claude-sonnet-4-20250514"
+alias = "sonnet"
 
 [[projects.agent.providers.models]]
-model = "gpt-5.4"
-alias = "gpt"
-
-[[projects.agent.providers.models]]
-model = "gpt-5.3-codex-spark"
-alias = "spark"
+model = "claude-opus-4-20250514"
+alias = "opus"
 ```
 
 ### Chat Commands
@@ -221,34 +186,6 @@ alias = "spark"
 ```
 
 When `models` is configured, `/model` shows exactly that list without making an API round-trip. When omitted, models are fetched from the provider API or fall back to a built-in list.
-
----
-
-## Feishu Setup CLI
-
-Use CLI to create or bind Feishu/Lark bot credentials and write them back to `config.toml`.
-
-```bash
-# Recommended: unified entry
-cc-connect feishu setup --project my-project
-cc-connect feishu setup --project my-project --app cli_xxx:sec_xxx
-
-# Force modes (usually unnecessary)
-cc-connect feishu new --project my-project
-cc-connect feishu bind --project my-project --app cli_xxx:sec_xxx
-```
-
-Differences:
-- `setup`: unified entry. No credentials => behaves like `new`; with `--app` => behaves like `bind`.
-- `new`: force QR onboarding flow; rejects `--app`.
-- `bind`: force credential binding flow; requires credentials.
-
-Behavior:
-- `setup` uses QR onboarding by default, or bind mode when `--app` is provided.
-- If `--project` does not exist, it is created automatically.
-- If project exists but has no `feishu/lark` platform, one is added automatically.
-- The command writes credentials (`app_id`, `app_secret`); in QR onboarding flow, Feishu usually pre-configures permissions and event subscriptions.
-- Still verify app publish status and availability scope in Feishu Open Platform.
 
 ---
 
@@ -295,7 +232,7 @@ router_api_key = "your-secret-key"  # optional
 
 Send voice messages — cc-connect transcribes them automatically.
 
-**Supported:** Feishu, WeChat Work, Telegram, LINE, Discord, Slack
+**Supported:** Telegram
 
 **Requirements:** OpenAI/Groq API key, `ffmpeg`
 
@@ -329,44 +266,11 @@ brew install ffmpeg
 
 ---
 
-## Voice Reply (Text-to-Speech)
-
-Synthesize AI replies into voice messages.
-
-**Supported:** Feishu (Lark)
-
-### Configure
-
-```toml
-[tts]
-enabled = true
-provider = "qwen"        # or "openai"
-voice = "Cherry"
-tts_mode = "voice_only"  # "voice_only" | "always"
-max_text_len = 0         # 0 = no limit
-
-[tts.qwen]
-api_key = "sk-xxx"
-# model = "qwen3-tts-flash"
-```
-
-### TTS Modes
-
-| Mode | Behavior |
-|------|----------|
-| `voice_only` | Reply with voice only when user sends voice |
-| `always` | Always send voice reply |
-
-Switch: `/tts always` or `/tts voice_only`
-
----
-
 ## Image and File Send-Back
 
 When an agent generates a local image, PDF, report, bundle, or other file and needs to deliver it directly to the current chat, use attachment mode in `cc-connect send`.
 
 **Currently supported platforms:**
-- Feishu
 - Telegram
 
 ### When to run setup first
@@ -546,7 +450,7 @@ See [config.example.toml](../config.example.toml) for full examples.
 name = "my-project"
 
 [projects.agent]
-type = "claudecode"  # or codex, cursor, gemini, qoder, opencode, iflow
+type = "claudecode"  # or gemini
 
 [projects.agent.options]
 work_dir = "/path/to/project"
@@ -554,7 +458,7 @@ mode = "default"
 provider = "anthropic"
 
 [[projects.platforms]]
-type = "feishu"  # or dingtalk, telegram, slack, discord, wecom, line, qq, qqbot
+type = "telegram"
 
 [projects.platforms.options]
 # platform-specific options

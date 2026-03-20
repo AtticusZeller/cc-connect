@@ -11,7 +11,7 @@ import (
 // StreamPreviewCfg controls the streaming preview behavior.
 type StreamPreviewCfg struct {
 	Enabled           bool     // global toggle
-	DisabledPlatforms []string // platforms where streaming preview is disabled (e.g. "feishu")
+	DisabledPlatforms []string // platforms where streaming preview is disabled
 	IntervalMs        int      // minimum ms between updates (default 1500)
 	MinDeltaChars     int      // minimum new chars before sending an update (default 30)
 	MaxChars          int      // max preview length (default 2000)
@@ -281,7 +281,7 @@ func (sp *streamPreview) finish(finalText string) bool {
 
 	// If the final text is identical to what was last sent via UpdateMessage,
 	// skip the redundant API call. This prevents duplicate messages on platforms
-	// (e.g. Feishu) where patching with identical content may fail.
+	// where patching with identical content may fail.
 	// Only skip when lastSentViaUpdate is true — if the text was only sent via
 	// SendPreviewStart (first flush), we must still call UpdateMessage because
 	// it may apply different formatting (e.g. Markdown→HTML for Telegram).

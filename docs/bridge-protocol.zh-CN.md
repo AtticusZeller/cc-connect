@@ -10,27 +10,27 @@ Bridge 协议允许使用**任何编程语言**编写的外部平台适配器在
 ### 架构
 
 ```
-┌──────────────────────────────────────────────────────┐
-│                    cc-connect                        │
-│                                                      │
-│   ┌────────────┐ ┌────────────┐ ┌────────────────┐  │
-│   │  Telegram   │ │    飞书    │ │ BridgePlatform │  │
-│   │  (原生)     │ │  (原生)    │ │  (WebSocket)   │  │
-│   └─────┬──────┘ └─────┬──────┘ └───────┬────────┘  │
-│         │              │                │            │
-│         └──────────────┴────────────────┘            │
-│                        │                             │
-│                  ┌─────┴─────┐                       │
-│                  │   Engine   │                       │
-│                  └───────────┘                       │
-└──────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────┐
+│                cc-connect                │
+│                                          │
+│   ┌────────────┐      ┌────────────────┐  │
+│   │  Telegram   │      │ BridgePlatform │  │
+│   │  (原生)     │      │  (WebSocket)   │  │
+│   └─────┬──────┘      └───────┬────────┘  │
+│         │                     │            │
+│         └──────────┬──────────┘            │
+│                    │                       │
+│              ┌─────┴─────┐                 │
+│              │   Engine   │                 │
+│              └───────────┘                 │
+└──────────────────────────────────────────┘
                          │ WebSocket
               ┌──────────┴───────────┐
               │                      │
-   ┌──────────┴──────┐  ┌───────────┴─────┐
-   │  Python 适配器   │  │ Node.js 适配器   │
-   │ (微信公众号等)   │  │ (自定义聊天等)    │
-   └─────────────────┘  └─────────────────┘
+   ┌──────────┴──────┐      ┌────────┴───────┐
+   │  Python 适配器   │      │ Node.js 适配器  │
+   │ (自定义聊天等)    │      │ (自定义聊天等)   │
+   └─────────────────┘      └────────────────┘
 ```
 
 `BridgePlatform` 是 cc-connect 内置的一个平台实现，它：
@@ -104,11 +104,11 @@ token = "your-secret"     # 认证密钥，必填
 ```json
 {
   "type": "register",
-  "platform": "wechat",
+  "platform": "custom",
   "capabilities": ["text", "image", "file", "audio", "card", "buttons", "typing", "update_message", "preview"],
   "metadata": {
     "version": "1.0.0",
-    "description": "微信公众号适配器"
+    "description": "自定义聊天适配器"
   }
 }
 ```
@@ -130,7 +130,7 @@ token = "your-secret"     # 认证密钥，必填
 {
   "type": "message",
   "msg_id": "msg-001",
-  "session_key": "wechat:user123:user123",
+  "session_key": "custom:user123:user123",
   "user_id": "user123",
   "user_name": "Alice",
   "content": "你好，你能做什么？",
@@ -163,7 +163,7 @@ token = "your-secret"     # 认证密钥，必填
 ```json
 {
   "type": "card_action",
-  "session_key": "wechat:user123:user123",
+  "session_key": "custom:user123:user123",
   "action": "cmd:/new",
   "reply_ctx": "conv-abc-123"
 }
@@ -224,7 +224,7 @@ token = "your-secret"     # 认证密钥，必填
 ```json
 {
   "type": "reply",
-  "session_key": "wechat:user123:user123",
+  "session_key": "custom:user123:user123",
   "reply_ctx": "conv-abc-123",
   "content": "我可以帮你完成编码任务！",
   "format": "text"
@@ -248,7 +248,7 @@ token = "your-secret"     # 认证密钥，必填
 ```json
 {
   "type": "reply_stream",
-  "session_key": "wechat:user123:user123",
+  "session_key": "custom:user123:user123",
   "reply_ctx": "conv-abc-123",
   "delta": "部分内容...",
   "full_text": "累积的完整文本...",
@@ -272,7 +272,7 @@ token = "your-secret"     # 认证密钥，必填
 {
   "type": "preview_start",
   "ref_id": "preview-req-001",
-  "session_key": "wechat:user123:user123",
+  "session_key": "custom:user123:user123",
   "reply_ctx": "conv-abc-123",
   "content": "思考中..."
 }
@@ -287,7 +287,7 @@ token = "your-secret"     # 认证密钥，必填
 ```json
 {
   "type": "update_message",
-  "session_key": "wechat:user123:user123",
+  "session_key": "custom:user123:user123",
   "preview_handle": "platform-msg-id-789",
   "content": "更新后的文本内容..."
 }
@@ -300,7 +300,7 @@ token = "your-secret"     # 认证密钥，必填
 ```json
 {
   "type": "delete_message",
-  "session_key": "wechat:user123:user123",
+  "session_key": "custom:user123:user123",
   "preview_handle": "platform-msg-id-789"
 }
 ```
@@ -312,7 +312,7 @@ token = "your-secret"     # 认证密钥，必填
 ```json
 {
   "type": "card",
-  "session_key": "wechat:user123:user123",
+  "session_key": "custom:user123:user123",
   "reply_ctx": "conv-abc-123",
   "card": {
     "header": {
@@ -353,7 +353,7 @@ token = "your-secret"     # 认证密钥，必填
 ```json
 {
   "type": "buttons",
-  "session_key": "wechat:user123:user123",
+  "session_key": "custom:user123:user123",
   "reply_ctx": "conv-abc-123",
   "content": "允许执行工具：bash(rm -rf /tmp/old)？",
   "buttons": [
@@ -374,7 +374,7 @@ token = "your-secret"     # 认证密钥，必填
 ```json
 {
   "type": "typing_start",
-  "session_key": "wechat:user123:user123",
+  "session_key": "custom:user123:user123",
   "reply_ctx": "conv-abc-123"
 }
 ```
@@ -386,7 +386,7 @@ token = "your-secret"     # 认证密钥，必填
 ```json
 {
   "type": "typing_stop",
-  "session_key": "wechat:user123:user123",
+  "session_key": "custom:user123:user123",
   "reply_ctx": "conv-abc-123"
 }
 ```
@@ -398,7 +398,7 @@ token = "your-secret"     # 认证密钥，必填
 ```json
 {
   "type": "audio",
-  "session_key": "wechat:user123:user123",
+  "session_key": "custom:user123:user123",
   "reply_ctx": "conv-abc-123",
   "data": "<base64 编码的音频数据>",
   "format": "mp3"
@@ -570,14 +570,14 @@ Session key 遵循以下格式：
 {platform}:{scope}:{user_id}
 ```
 
-- **platform**：注册时的 `platform` 名称（如 `wechat`）。
+- **platform**：注册时的 `platform` 名称（如 `custom`）。
 - **scope**：分组范围 — 可以是群/频道 ID，也可以与 `user_id` 相同（一对一私聊）。
 - **user_id**：用户在平台上的唯一标识。
 
 示例：
-- `wechat:user123:user123` — 私聊
-- `wechat:group456:user123` — 用户在群聊中
-- `matrix:room789:alice` — Matrix 聊天室
+- `custom:user123:user123` — 私聊
+- `custom:group456:user123` — 用户在群聊中
+- `custom:room789:alice` — Matrix 聊天室
 
 适配器负责构建一致的 session key。
 
@@ -617,7 +617,7 @@ Session key 遵循以下格式：
 
 | 参数 | 类型 | 必填 | 说明 |
 |------|------|------|------|
-| `session_key` | string | 是 | 要查询会话的 session key（如 `wechat:user123:user123`）。 |
+| `session_key` | string | 是 | 要查询会话的 session key（如 `custom:user123:user123`）。 |
 
 **响应：**
 
@@ -652,7 +652,7 @@ Session key 遵循以下格式：
 
 ```json
 {
-  "session_key": "wechat:user123:user123",
+  "session_key": "custom:user123:user123",
   "name": "work"
 }
 ```
@@ -737,7 +737,7 @@ Session key 遵循以下格式：
 
 ```json
 {
-  "session_key": "wechat:user123:user123",
+  "session_key": "custom:user123:user123",
   "target": "s2"
 }
 ```
@@ -793,7 +793,7 @@ token = "一个强随机密钥"
 
 # 可选：限制哪些适配器可以连接（按平台名称）。
 # 默认：允许所有已注册的适配器。
-# allow_platforms = ["wechat", "matrix"]
+# allow_platforms = ["telegram"]
 ```
 
 不需要为每个适配器单独配置项目 — 适配器默认关联到**默认项目**，或在 `register` 消息中指定 `project` 字段绑定到特定项目。

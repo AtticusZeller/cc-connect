@@ -62,9 +62,6 @@ func main() {
 		case "daemon":
 			runDaemon(os.Args[2:])
 			return
-		case "feishu":
-			runFeishu(os.Args[2:])
-			return
 		}
 	}
 
@@ -746,7 +743,7 @@ level = "info"
 name = "my-project"
 
 [projects.agent]
-type = "claudecode"   # "claudecode", "codex", "cursor", "gemini", "qoder", "opencode", or "iflow"
+type = "claudecode"   # "claudecode", "gemini"
 
 [projects.agent.options]
 work_dir = "/path/to/your/project"
@@ -755,16 +752,12 @@ mode = "default"
 
 # --- Choose at least one platform below ---
 
-# Feishu / Lark (WebSocket, no public IP needed)
 [[projects.platforms]]
-type = "feishu"
+type = "telegram"
 
 [projects.platforms.options]
-app_id = "your-feishu-app-id"
-app_secret = "your-feishu-app-secret"
-
-# For more platforms (DingTalk, Telegram, Slack, Discord, LINE, WeChat Work)
-# see: https://github.com/AtticusZeller/cc-connect/blob/main/config.example.toml
+token = "your-telegram-bot-token"
+allowed_users = ["your_telegram_username"]
 `
 	return os.WriteFile(path, []byte(tmpl), 0o644)
 }
@@ -786,8 +779,8 @@ func printUsage() {
  \___\__|      \___\___/|_| |_|_| |_|\___|\___|\__|  %s%s
 
   Bridge your messaging platforms to local AI coding agents.
-  Supports: Claude Code, Codex, Cursor, Gemini CLI, Qoder CLI, OpenCode
-  Platforms: Feishu, Telegram, Slack, DingTalk, Discord, LINE, WeChat Work, QQ, QQ Bot
+  Supports: Claude Code, Gemini CLI
+  Platforms: Telegram
 
   GitHub:  https://github.com/AtticusZeller/cc-connect
   Docs:    https://github.com/AtticusZeller/cc-connect/blob/main/INSTALL.md
@@ -832,11 +825,6 @@ Commands:
     remove           Remove a provider (--project, --name)
     import           Import providers from cc-switch
 
-  feishu             Setup Feishu/Lark bot credentials
-    setup            Smart setup (QR create or bind when --app is provided)
-    new              Force QR onboarding to create a new bot
-    bind             Bind existing app_id/app_secret
-
   update             Check for updates and upgrade the binary (--pre for beta)
   check-update       Check if a newer version is available
   config-example     Print a complete annotated config.toml example
@@ -848,7 +836,6 @@ Examples:
   cc-connect daemon logs -f           Follow daemon logs
   cc-connect send -m "hello"          Send a message to the active session
   cc-connect cron list                List all scheduled tasks
-  cc-connect feishu setup             Setup Feishu/Lark bot credentials
   cc-connect update                   Update to the latest version
   cc-connect config-example           Print full config.toml example
   cc-connect config-example > c.toml  Save example config to a file

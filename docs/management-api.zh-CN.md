@@ -169,7 +169,7 @@ GET /api/v1/status?token=mgmt-secret
   "data": {
     "version": "v1.2.0",
     "uptime_seconds": 3600,
-    "connected_platforms": ["feishu", "telegram"],
+    "connected_platforms": ["telegram", "telegram"],
     "projects_count": 2,
     "bridge_adapters": [
       {
@@ -270,7 +270,7 @@ GET /api/v1/status?token=mgmt-secret
         },
         "platforms": [
           {
-            "type": "feishu",
+            "type": "telegram",
             "options": {
               "app_id": "***",
               "app_secret": "***"
@@ -334,7 +334,7 @@ GET /api/v1/status?token=mgmt-secret
       {
         "name": "my-backend",
         "agent_type": "claudecode",
-        "platforms": ["feishu", "telegram"],
+        "platforms": ["telegram", "telegram"],
         "sessions_count": 3,
         "heartbeat_enabled": true
       }
@@ -365,7 +365,7 @@ GET /api/v1/status?token=mgmt-secret
     "agent_type": "claudecode",
     "platforms": [
       {
-        "type": "feishu",
+        "type": "telegram",
         "connected": true
       },
       {
@@ -374,7 +374,7 @@ GET /api/v1/status?token=mgmt-secret
       }
     ],
     "sessions_count": 3,
-    "active_session_keys": ["telegram:123:456", "feishu:ou_xxx:chat_xxx"],
+    "active_session_keys": ["telegram:123:456", "telegram:ou_xxx:chat_xxx"],
     "heartbeat": {
       "enabled": true,
       "paused": false,
@@ -1111,9 +1111,9 @@ GET /api/v1/status?token=mgmt-secret
 示例：
 
 - `telegram:123456789:123456789` — Telegram 用户 123456789，会话 123456789
-- `feishu:ou_xxx:chat_yyy` — 飞书用户与会话
-- `slack:C01234:U05678` — Slack 频道与用户
-- `discord:123456789:987654321` — Discord 服务器与用户
+- `telegram:ou_xxx:chat_yyy` — 飞书用户与会话
+- `telegram:C01234:U05678` — Telegram 频道与用户
+- `telegram:123456789:987654321` — Telegram 服务器与用户
 
 多工作区模式下，格式可能包含工作区前缀：
 

@@ -237,7 +237,7 @@ func TestSessionManager_InvalidateForAgent(t *testing.T) {
 
 	// Create sessions with different agent types
 	s1 := sm.NewSession("user1", "sess1")
-	s1.SetAgentSessionID("old-id-1", "opencode")
+	s1.SetAgentSessionID("old-id-1", "gemini")
 
 	s2 := sm.NewSession("user2", "sess2")
 	s2.SetAgentSessionID("old-id-2", "claudecode")
@@ -249,9 +249,9 @@ func TestSessionManager_InvalidateForAgent(t *testing.T) {
 
 	sm.InvalidateForAgent("claudecode")
 
-	// s1: opencode → should be invalidated
+	// s1: gemini → should be invalidated
 	if got := s1.GetAgentSessionID(); got != "" {
-		t.Errorf("s1 (opencode) AgentSessionID = %q, want empty (should be invalidated)", got)
+		t.Errorf("s1 (gemini) AgentSessionID = %q, want empty (should be invalidated)", got)
 	}
 	if s1.AgentType != "claudecode" {
 		t.Errorf("s1 AgentType = %q, want %q after invalidation", s1.AgentType, "claudecode")
@@ -281,11 +281,11 @@ func TestSessionManager_InvalidateForAgent(t *testing.T) {
 
 func TestSessionManager_UserMeta(t *testing.T) {
 	sm := NewSessionManager("")
-	sm.GetOrCreateActive("feishu:oc_abc:ou_xyz")
+	sm.GetOrCreateActive("telegram:chat_1:user_1")
 
 	// Set UserName
-	sm.UpdateUserMeta("feishu:oc_abc:ou_xyz", "Zhang San", "")
-	meta := sm.GetUserMeta("feishu:oc_abc:ou_xyz")
+	sm.UpdateUserMeta("telegram:chat_1:user_1", "Zhang San", "")
+	meta := sm.GetUserMeta("telegram:chat_1:user_1")
 	if meta == nil || meta.UserName != "Zhang San" {
 		t.Errorf("expected UserName='Zhang San', got %+v", meta)
 	}
@@ -294,15 +294,15 @@ func TestSessionManager_UserMeta(t *testing.T) {
 	}
 
 	// Merge: add ChatName without losing UserName
-	sm.UpdateUserMeta("feishu:oc_abc:ou_xyz", "", "Test Group")
-	meta = sm.GetUserMeta("feishu:oc_abc:ou_xyz")
+	sm.UpdateUserMeta("telegram:chat_1:user_1", "", "Test Group")
+	meta = sm.GetUserMeta("telegram:chat_1:user_1")
 	if meta.UserName != "Zhang San" || meta.ChatName != "Test Group" {
 		t.Errorf("expected merge, got %+v", meta)
 	}
 
 	// No-op for empty values
-	sm.UpdateUserMeta("feishu:oc_abc:ou_xyz", "", "")
-	meta = sm.GetUserMeta("feishu:oc_abc:ou_xyz")
+	sm.UpdateUserMeta("telegram:chat_1:user_1", "", "")
+	meta = sm.GetUserMeta("telegram:chat_1:user_1")
 	if meta.UserName != "Zhang San" || meta.ChatName != "Test Group" {
 		t.Errorf("expected no change, got %+v", meta)
 	}
@@ -318,12 +318,12 @@ func TestSessionManager_UserMetaPersistence(t *testing.T) {
 	path := filepath.Join(dir, "sessions.json")
 
 	sm1 := NewSessionManager(path)
-	sm1.NewSession("feishu:oc_abc:ou_xyz", "test")
-	sm1.UpdateUserMeta("feishu:oc_abc:ou_xyz", "Zhang San", "Group Name")
+	sm1.NewSession("telegram:chat_1:user_1", "test")
+	sm1.UpdateUserMeta("telegram:chat_1:user_1", "Zhang San", "Group Name")
 	sm1.Save()
 
 	sm2 := NewSessionManager(path)
-	meta := sm2.GetUserMeta("feishu:oc_abc:ou_xyz")
+	meta := sm2.GetUserMeta("telegram:chat_1:user_1")
 	if meta == nil || meta.UserName != "Zhang San" || meta.ChatName != "Group Name" {
 		t.Errorf("expected persisted meta, got %+v", meta)
 	}
@@ -333,13 +333,13 @@ func TestSessionManager_DeleteByAgentSessionID(t *testing.T) {
 	sm := NewSessionManager("")
 
 	s1 := sm.NewSession("user1", "one")
-	s1.SetAgentSessionID("agent-1", "codex")
+	s1.SetAgentSessionID("agent-1", "gemini")
 
 	s2 := sm.NewSession("user2", "two")
-	s2.SetAgentSessionID("agent-2", "codex")
+	s2.SetAgentSessionID("agent-2", "gemini")
 
 	s3 := sm.NewSession("user3", "three")
-	s3.SetAgentSessionID("agent-1", "codex")
+	s3.SetAgentSessionID("agent-1", "gemini")
 
 	if removed := sm.DeleteByAgentSessionID("agent-1"); removed != 2 {
 		t.Fatalf("removed = %d, want 2", removed)

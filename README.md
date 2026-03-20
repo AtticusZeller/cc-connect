@@ -9,8 +9,8 @@
   <a href="https://github.com/AtticusZeller/cc-connect/releases">
     <img src="https://img.shields.io/github/v/release/chenhg5/cc-connect?include_prereleases" alt="Release"/>
   </a>
-  <a href="https://www.npmjs.com/package/cc-connect">
-    <img src="https://img.shields.io/npm/dm/cc-connect?logo=npm" alt="npm downloads"/>
+  <a href="https://www.npmjs.com/package/@atticux/cc-connect">
+    <img src="https://img.shields.io/npm/dm/@atticux/cc-connect?logo=npm" alt="npm downloads"/>
   </a>
   <a href="https://github.com/AtticusZeller/cc-connect/blob/main/LICENSE">
     <img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="License"/>
@@ -97,10 +97,10 @@ Follow https://raw.githubusercontent.com/chenhg5/cc-connect/refs/heads/main/INST
 
 ```bash
 # Stable version
-npm install -g cc-connect
+npm install -g @atticux/cc-connect
 
 # Beta version (more features, may be unstable)
-npm install -g cc-connect@beta
+npm install -g @atticux/cc-connect@beta
 ```
 
 **Download binary from [GitHub Releases](https://github.com/AtticusZeller/cc-connect/releases):**
@@ -147,8 +147,8 @@ vim ~/.cc-connect/config.toml
 
 ```bash
 # npm
-npm install -g cc-connect
-
+npm install -g @atticux/cc-connect
+```
 # Binary self-update
 cc-connect update           # Stable
 cc-connect update --pre     # Beta (includes pre-releases)

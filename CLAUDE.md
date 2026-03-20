@@ -2,7 +2,7 @@
 
 ## Project Overview
 
-CC-Connect is a bridge that connects AI coding agents (Claude Code, Codex, Gemini CLI, Cursor, etc.) with messaging platforms (Feishu/Lark, Telegram, Discord, Slack, DingTalk, WeChat Work, QQ, LINE). Users interact with their coding agent through their preferred messaging app.
+CC-Connect is a bridge that connects AI coding agents (Claude Code, Gemini CLI) with messaging platforms (Telegram). Users interact with their coding agent through their preferred messaging app.
 
 ## Architecture
 
@@ -16,15 +16,8 @@ CC-Connect is a bridge that connects AI coding agents (Claude Code, Codex, Gemin
 │                                                 │     cards, sessions, registry
 ├──────────────────────┬──────────────────────────┤
 │     agent/           │      platform/           │
-│  ├── claudecode/     │  ├── feishu/             │
-│  ├── codex/          │  ├── telegram/           │
-│  ├── cursor/         │  ├── discord/            │
-│  ├── gemini/         │  ├── slack/              │
-│  ├── iflow/          │  ├── dingtalk/           │
-│  ├── opencode/       │  ├── wecom/              │
-│  └── qoder/          │  ├── qq/                 │
-│                      │  ├── qqbot/              │
-│                      │  └── line/               │
+│  ├── claudecode/     │  └── telegram/           │
+│  └── gemini/         │                          │
 ├──────────────────────┴──────────────────────────┤
 │                     daemon/                     │  ← systemd/launchd service
 └─────────────────────────────────────────────────┘
@@ -62,11 +55,11 @@ Optional capability interfaces (implement only when needed):
 
 ### 1. No Hardcoding Platform or Agent Names in Core
 
-The `core/` package must remain agnostic. Never write `if p.Name() == "feishu"` or `CreateAgent("claudecode", ...)` in core. Use interfaces and capability checks instead:
+The `core/` package must remain agnostic. Never write `if p.Name() == "telegram"` or `CreateAgent("claudecode", ...)` in core. Use interfaces and capability checks instead:
 
 ```go
 // BAD — hardcodes platform knowledge in core
-if p.Name() == "feishu" && supportsCards(p) {
+if p.Name() == "telegram" && supportsCards(p) {
 
 // GOOD — capability-based check
 if supportsCards(p) {
@@ -115,7 +108,7 @@ if info, ok := agent.(AgentDoctorInfo); ok {
 
 ### 5. Error Handling
 
-- Always wrap errors with context: `fmt.Errorf("feishu: reply card: %w", err)`
+- Always wrap errors with context: `fmt.Errorf("telegram: reply card: %w", err)`
 - Never silently swallow errors; at minimum log them with `slog.Error` / `slog.Warn`
 - Use `slog` (structured logging) consistently; never `log.Printf` or `fmt.Printf` for runtime logs
 - Redact tokens/secrets in error messages using `core.RedactToken()`
@@ -140,7 +133,7 @@ All user-facing strings must go through `core/i18n.go`:
 - Use `strings.EqualFold` for case-insensitive comparisons
 - Avoid `init()` for anything other than platform/agent registration
 - Keep functions focused; extract helpers when a function exceeds ~80 lines
-- Naming: `New()` for constructors, `Get/Set` for accessors, avoid stuttering (`feishu.FeishuPlatform` → `feishu.Platform`)
+- Naming: `New()` for constructors, `Get/Set` for accessors, avoid stuttering (`telegram.TelegramPlatform` → `telegram.Platform`)
 
 ## Testing
 
@@ -175,36 +168,33 @@ go test -race ./...
 ## Selective Compilation
 
 Each agent and platform is imported via a separate `plugin_*.go` file with a
-build tag (e.g. `//go:build !no_feishu`). By default **all** agents and
+build tag (e.g. `//go:build !no_telegram`). By default **all** agents and
 platforms are compiled in.
 
 ### Include only specific agents/platforms
 
 ```bash
-# Only Claude Code agent + Feishu and Telegram platforms
-make build AGENTS=claudecode PLATFORMS_INCLUDE=feishu,telegram
+# Only Claude Code agent + Telegram platform
+make build AGENTS=claudecode PLATFORMS_INCLUDE=telegram
 
 # Multiple agents
-make build AGENTS=claudecode,codex PLATFORMS_INCLUDE=feishu,telegram,discord
+make build AGENTS=claudecode,gemini PLATFORMS_INCLUDE=telegram
 ```
 
 ### Exclude specific agents/platforms
 
 ```bash
 # Exclude some platforms you don't need
-make build EXCLUDE=discord,dingtalk,qq,qqbot,line
+make build EXCLUDE=telegram
 ```
 
 ### Direct build tag usage (without Make)
 
 ```bash
-go build -tags 'no_discord no_dingtalk no_qq no_qqbot no_line' ./cmd/cc-connect
+go build -tags 'no_telegram' ./cmd/cc-connect
 ```
 
-Available tags: `no_claudecode`, `no_codex`, `no_cursor`, `no_gemini`,
-`no_iflow`, `no_opencode`, `no_qoder`, `no_feishu`, `no_telegram`,
-`no_discord`, `no_slack`, `no_dingtalk`, `no_wecom`, `no_qq`, `no_qqbot`,
-`no_line`.
+Available tags: `no_claudecode`, `no_gemini`, `no_telegram`.
 
 ## Pre-Commit Checklist
 

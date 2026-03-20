@@ -20,7 +20,7 @@ var (
 )
 
 // StripMarkdown converts Markdown-formatted text to clean plain text.
-// Useful for platforms that don't support Markdown rendering (WeChat, LINE, etc.).
+// Useful for platforms that don't support Markdown rendering.
 func StripMarkdown(s string) string {
 	// Preserve code block content but remove fences
 	s = reCodeBlock.ReplaceAllString(s, "$1")

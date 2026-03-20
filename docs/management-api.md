@@ -169,7 +169,7 @@ Returns system status and summary.
   "data": {
     "version": "v1.2.0",
     "uptime_seconds": 3600,
-    "connected_platforms": ["feishu", "telegram"],
+    "connected_platforms": ["telegram", "telegram"],
     "projects_count": 2,
     "bridge_adapters": [
       {
@@ -270,7 +270,7 @@ Returns the current configuration with secrets redacted. Useful for debugging an
         },
         "platforms": [
           {
-            "type": "feishu",
+            "type": "telegram",
             "options": {
               "app_id": "***",
               "app_secret": "***"
@@ -334,7 +334,7 @@ Lists all projects with a summary.
       {
         "name": "my-backend",
         "agent_type": "claudecode",
-        "platforms": ["feishu", "telegram"],
+        "platforms": ["telegram", "telegram"],
         "sessions_count": 3,
         "heartbeat_enabled": true
       }
@@ -365,7 +365,7 @@ Returns detailed information for a single project.
     "agent_type": "claudecode",
     "platforms": [
       {
-        "type": "feishu",
+        "type": "telegram",
         "connected": true
       },
       {
@@ -374,7 +374,7 @@ Returns detailed information for a single project.
       }
     ],
     "sessions_count": 3,
-    "active_session_keys": ["telegram:123:456", "feishu:ou_xxx:chat_xxx"],
+    "active_session_keys": ["telegram:123:456", "telegram:ou_xxx:chat_xxx"],
     "heartbeat": {
       "enabled": true,
       "paused": false,
@@ -1111,9 +1111,9 @@ The `session_key` is a composite identifier used to route messages to the correc
 Examples:
 
 - `telegram:123456789:123456789` — Telegram user 123456789 in chat 123456789
-- `feishu:ou_xxx:chat_yyy` — Feishu user in chat
-- `slack:C01234:U05678` — Slack channel and user
-- `discord:123456789:987654321` — Discord guild and user
+- `telegram:ou_xxx:chat_yyy` — Telegram user in chat
+- `telegram:C01234:U05678` — Telegram channel and user
+- `telegram:123456789:987654321` — Telegram guild and user
 
 For multi-workspace mode, the format may include a workspace prefix:
 

@@ -10,27 +10,27 @@ The Bridge Protocol allows **external platform adapters** written in any program
 ### Architecture
 
 ```
-┌──────────────────────────────────────────────────────┐
-│                    cc-connect                        │
-│                                                      │
-│   ┌────────────┐ ┌────────────┐ ┌────────────────┐  │
-│   │  Telegram   │ │   Feishu   │ │ BridgePlatform │  │
-│   │  (native)   │ │  (native)  │ │  (WebSocket)   │  │
-│   └─────┬──────┘ └─────┬──────┘ └───────┬────────┘  │
-│         │              │                │            │
-│         └──────────────┴────────────────┘            │
-│                        │                             │
-│                  ┌─────┴─────┐                       │
-│                  │   Engine   │                       │
-│                  └───────────┘                       │
-└──────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────┐
+│                cc-connect                │
+│                                          │
+│   ┌────────────┐      ┌────────────────┐  │
+│   │  Telegram   │      │ BridgePlatform │  │
+│   │  (native)   │      │  (WebSocket)   │  │
+│   └─────┬──────┘      └───────┬────────┘  │
+│         │                     │            │
+│         └──────────┬──────────┘            │
+│                    │                       │
+│              ┌─────┴─────┐                 │
+│              │   Engine   │                 │
+│              └───────────┘                 │
+└──────────────────────────────────────────┘
                          │ WebSocket
               ┌──────────┴───────────┐
               │                      │
-   ┌──────────┴──────┐  ┌───────────┴─────┐
-   │  Python Adapter  │  │ Node.js Adapter  │
-   │ (WeChat, Line…)  │  │ (Custom Chat…)   │
-   └─────────────────┘  └─────────────────┘
+   ┌──────────┴──────┐      ┌────────┴───────┐
+   │  Python Adapter  │      │ Node.js Adapter │
+   │ (Custom Chat…)   │      │ (Custom Chat…)  │
+   └─────────────────┘      └────────────────┘
 ```
 
 The `BridgePlatform` is a built-in platform inside cc-connect that:
@@ -104,11 +104,11 @@ Must be the first message after connection. Declares the adapter identity and ca
 ```json
 {
   "type": "register",
-  "platform": "wechat",
+  "platform": "custom",
   "capabilities": ["text", "image", "file", "audio", "card", "buttons", "typing", "update_message", "preview"],
   "metadata": {
     "version": "1.0.0",
-    "description": "WeChat Official Account adapter"
+    "description": "Custom Chat adapter"
   }
 }
 ```
@@ -130,7 +130,7 @@ Delivers an incoming user message to the engine.
 {
   "type": "message",
   "msg_id": "msg-001",
-  "session_key": "wechat:user123:user123",
+  "session_key": "custom:user123:user123",
   "user_id": "user123",
   "user_name": "Alice",
   "content": "Hello, what can you do?",
@@ -163,7 +163,7 @@ User clicked a button or selected an option on a card.
 ```json
 {
   "type": "card_action",
-  "session_key": "wechat:user123:user123",
+  "session_key": "custom:user123:user123",
   "action": "cmd:/new",
   "reply_ctx": "conv-abc-123"
 }
@@ -224,7 +224,7 @@ A complete reply message to send to the user.
 ```json
 {
   "type": "reply",
-  "session_key": "wechat:user123:user123",
+  "session_key": "custom:user123:user123",
   "reply_ctx": "conv-abc-123",
   "content": "I can help you with coding tasks!",
   "format": "text"
@@ -248,7 +248,7 @@ Streaming delta for real-time typing preview. Only sent if the adapter declared 
 ```json
 {
   "type": "reply_stream",
-  "session_key": "wechat:user123:user123",
+  "session_key": "custom:user123:user123",
   "reply_ctx": "conv-abc-123",
   "delta": "partial content...",
   "full_text": "accumulated full text so far...",
@@ -272,7 +272,7 @@ Requests the adapter to create an initial preview message (for streaming).
 {
   "type": "preview_start",
   "ref_id": "preview-req-001",
-  "session_key": "wechat:user123:user123",
+  "session_key": "custom:user123:user123",
   "reply_ctx": "conv-abc-123",
   "content": "Thinking..."
 }
@@ -287,7 +287,7 @@ Requests the adapter to edit an existing message in-place. Used for streaming pr
 ```json
 {
   "type": "update_message",
-  "session_key": "wechat:user123:user123",
+  "session_key": "custom:user123:user123",
   "preview_handle": "platform-msg-id-789",
   "content": "Updated text content..."
 }
@@ -300,7 +300,7 @@ Requests the adapter to delete a message (e.g., cleaning up preview messages).
 ```json
 {
   "type": "delete_message",
-  "session_key": "wechat:user123:user123",
+  "session_key": "custom:user123:user123",
   "preview_handle": "platform-msg-id-789"
 }
 ```
@@ -312,7 +312,7 @@ Send a structured card to the user. Only sent if the adapter declared `"card"` c
 ```json
 {
   "type": "card",
-  "session_key": "wechat:user123:user123",
+  "session_key": "custom:user123:user123",
   "reply_ctx": "conv-abc-123",
   "card": {
     "header": {
@@ -353,7 +353,7 @@ Send a message with inline buttons. Only sent if the adapter declared `"buttons"
 ```json
 {
   "type": "buttons",
-  "session_key": "wechat:user123:user123",
+  "session_key": "custom:user123:user123",
   "reply_ctx": "conv-abc-123",
   "content": "Allow tool execution: bash(rm -rf /tmp/old)?",
   "buttons": [
@@ -374,7 +374,7 @@ Requests the adapter to show a typing indicator.
 ```json
 {
   "type": "typing_start",
-  "session_key": "wechat:user123:user123",
+  "session_key": "custom:user123:user123",
   "reply_ctx": "conv-abc-123"
 }
 ```
@@ -386,7 +386,7 @@ Requests the adapter to hide the typing indicator.
 ```json
 {
   "type": "typing_stop",
-  "session_key": "wechat:user123:user123",
+  "session_key": "custom:user123:user123",
   "reply_ctx": "conv-abc-123"
 }
 ```
@@ -398,7 +398,7 @@ Send a voice/audio message. Only sent if the adapter declared `"audio"` capabili
 ```json
 {
   "type": "audio",
-  "session_key": "wechat:user123:user123",
+  "session_key": "custom:user123:user123",
   "reply_ctx": "conv-abc-123",
   "data": "<base64-encoded-audio>",
   "format": "mp3"
@@ -570,14 +570,14 @@ Session keys follow the pattern:
 {platform}:{scope}:{user_id}
 ```
 
-- **platform**: The `platform` name from registration (e.g., `wechat`).
+- **platform**: The `platform` name from registration (e.g., `custom`).
 - **scope**: A grouping scope — could be a group/channel ID, or the same as `user_id` for 1-on-1 chats.
 - **user_id**: The unique user identifier.
 
 Examples:
-- `wechat:user123:user123` — personal DM
-- `wechat:group456:user123` — user in a group chat
-- `matrix:room789:alice` — Matrix room
+- `custom:user123:user123` — personal DM
+- `custom:group456:user123` — user in a group chat
+- `custom:room789:alice` — Matrix room
 
 The adapter is responsible for constructing consistent session keys.
 
@@ -617,7 +617,7 @@ Lists sessions for a given session key prefix (typically `platform:chatId`).
 
 | Param | Type | Required | Description |
 |-------|------|----------|-------------|
-| `session_key` | string | yes | The session key to list sessions for (e.g., `wechat:user123:user123`). |
+| `session_key` | string | yes | The session key to list sessions for (e.g., `custom:user123:user123`). |
 
 **Response:**
 
@@ -652,7 +652,7 @@ Creates a new named session.
 
 ```json
 {
-  "session_key": "wechat:user123:user123",
+  "session_key": "custom:user123:user123",
   "name": "work"
 }
 ```
@@ -737,7 +737,7 @@ Switches the active session for a session key.
 
 ```json
 {
-  "session_key": "wechat:user123:user123",
+  "session_key": "custom:user123:user123",
   "target": "s2"
 }
 ```
@@ -793,7 +793,7 @@ token = "a-strong-random-secret"
 
 # Optional: restrict which adapters can connect (by platform name).
 # Default: allow all registered adapters.
-# allow_platforms = ["wechat", "matrix"]
+# allow_platforms = ["telegram"]
 ```
 
 No per-adapter project configuration is needed — adapters are associated with the **default project** or specify a `project` field in the `register` message to bind to a specific project.

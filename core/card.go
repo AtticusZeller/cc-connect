@@ -6,7 +6,7 @@ import (
 )
 
 // Card represents a structured rich message that can be rendered as
-// platform-specific cards (Feishu Interactive Card, Telegram message, etc.)
+// platform-specific cards (Telegram message, etc.)
 // or degraded to plain text for platforms without card support.
 type Card struct {
 	Header   *CardHeader
@@ -45,7 +45,7 @@ type CardNote struct {
 }
 
 // CardListItem renders a row with description text on the left and a button on the right.
-// On Feishu this maps to div+extra; on other platforms it degrades to a text line.
+// This maps to rich platform elements; on other platforms it degrades to a text line.
 type CardListItem struct {
 	Text     string            // left-side description
 	BtnText  string            // button label
@@ -55,7 +55,7 @@ type CardListItem struct {
 }
 
 // CardSelect renders a dropdown selector.
-// On Feishu this maps to select_static; on other platforms it degrades to text.
+// This maps to native select menus; on other platforms it degrades to text.
 type CardSelect struct {
 	Placeholder string
 	Options     []CardSelectOption

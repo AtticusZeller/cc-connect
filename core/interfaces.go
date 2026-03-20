@@ -5,7 +5,7 @@ import (
 	"errors"
 )
 
-// Platform abstracts a messaging platform (Feishu, DingTalk, Slack, etc.).
+// Platform abstracts a messaging platform (Telegram, etc.).
 type Platform interface {
 	Name() string
 	Start(handler MessageHandler) error
@@ -32,7 +32,7 @@ type SessionEnvInjector interface {
 
 // FormattingInstructionProvider is an optional interface for platforms that
 // provide platform-specific formatting instructions for the agent system prompt
-// (e.g., Slack mrkdwn vs standard Markdown).
+// (e.g., Telegram MarkdownV2 vs standard Markdown).
 type FormattingInstructionProvider interface {
 	FormattingInstructions() string
 }
@@ -138,7 +138,7 @@ type InlineButtonSender interface {
 }
 
 // CardSender is an optional interface for platforms that support sending
-// structured rich cards (e.g. Feishu Interactive Card). Platforms that do not
+// structured rich cards. Platforms that do not
 // implement this interface will receive a plain-text fallback via Card.RenderText().
 type CardSender interface {
 	SendCard(ctx context.Context, replyCtx any, card *Card) error
@@ -146,7 +146,7 @@ type CardSender interface {
 }
 
 // CardNavigationHandler is called by platforms to render a card for in-place
-// card updates (e.g. Feishu card.action.trigger callback). The action string
+// card updates. The action string
 // uses prefixes like "nav:/model" or "act:/model 3".
 type CardNavigationHandler func(action string, sessionKey string) *Card
 
@@ -159,7 +159,7 @@ type CardNavigable interface {
 // MessageHandler is called by platforms when a new message arrives.
 type MessageHandler func(p Platform, msg *Message)
 
-// Agent abstracts an AI coding assistant (Claude Code, Cursor, Gemini CLI, etc.).
+// Agent abstracts an AI coding assistant (Claude Code, Gemini CLI, etc.).
 // All agents must support persistent bidirectional sessions via StartSession.
 type Agent interface {
 	Name() string
@@ -254,7 +254,7 @@ type ReasoningEffortSwitcher interface {
 type ModelOption struct {
 	Name  string // model identifier passed to CLI
 	Desc  string // short description (display_name or empty)
-	Alias string // optional short alias for the /model command (e.g. "codex" for "gpt-5.3-codex")
+	Alias string // optional short alias for the /model command (e.g. "gemini" for "gemini-1.5-pro")
 }
 
 // UsageReporter is an optional interface for agents that can report account or

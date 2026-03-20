@@ -9,8 +9,8 @@
   <a href="https://github.com/AtticusZeller/cc-connect/releases">
     <img src="https://img.shields.io/github/v/release/chenhg5/cc-connect?include_prereleases" alt="Release"/>
   </a>
-  <a href="https://www.npmjs.com/package/cc-connect">
-    <img src="https://img.shields.io/npm/dm/cc-connect?logo=npm" alt="npm downloads"/>
+  <a href="https://www.npmjs.com/package/@atticux/cc-connect">
+    <img src="https://img.shields.io/npm/dm/@atticux/cc-connect?logo=npm" alt="npm downloads"/>
   </a>
   <a href="https://github.com/AtticusZeller/cc-connect/blob/main/LICENSE">
     <img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="License"/>
@@ -97,10 +97,10 @@
 
 ```bash
 # 稳定版
-npm install -g cc-connect
+npm install -g @atticux/cc-connect
 
 # Beta 版（功能更新，可能不稳定）
-npm install -g cc-connect@beta
+npm install -g @atticux/cc-connect@beta
 ```
 
 **从 [GitHub Releases](https://github.com/AtticusZeller/cc-connect/releases) 下载：**
@@ -147,8 +147,8 @@ vim ~/.cc-connect/config.toml
 
 ```bash
 # npm
-npm install -g cc-connect
-
+npm install -g @atticux/cc-connect
+```
 # 二进制自更新
 cc-connect update           # 稳定版
 cc-connect update --pre     # Beta 版（含 pre-release）

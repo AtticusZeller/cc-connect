@@ -1004,7 +1004,7 @@ func TestEngine_RateLimit_GlobalFallback(t *testing.T) {
 
 func TestSendPermissionPrompt_CardPlatform(t *testing.T) {
 	e := newTestEngine()
-	p := &stubCardPlatform{stubPlatformEngine: stubPlatformEngine{n: "feishu"}}
+	p := &stubCardPlatform{stubPlatformEngine: stubPlatformEngine{n: "telegram"}}
 
 	e.sendPermissionPrompt(p, "ctx", "full prompt text", "write_file", "/tmp/test.txt")
 
@@ -1124,7 +1124,7 @@ func TestCmdList_MultiWorkspaceUsesWorkspaceSessions(t *testing.T) {
 	}
 	ws.sessions = NewSessionManager("")
 
-	msg := &Message{SessionKey: "slack:" + channelID + ":U1", ReplyCtx: "ctx"}
+	msg := &Message{SessionKey: "telegram:" + channelID + ":U1", ReplyCtx: "ctx"}
 	e.cmdList(p, msg, nil)
 
 	if len(p.sent) == 0 {
@@ -1600,13 +1600,13 @@ func TestCmdDelete_SyncsLocalSessionSnapshot(t *testing.T) {
 }
 
 func TestCmdDelete_NoArgsOnCardPlatformShowsDeleteModeCard(t *testing.T) {
-	p := &stubCardPlatform{stubPlatformEngine: stubPlatformEngine{n: "feishu"}}
+	p := &stubCardPlatform{stubPlatformEngine: stubPlatformEngine{n: "telegram"}}
 	agent := &stubDeleteAgent{stubListAgent: stubListAgent{sessions: []AgentSessionInfo{
 		{ID: "session-1", Summary: "One"},
 		{ID: "session-2", Summary: "Two"},
 	}}}
 	e := NewEngine("test", agent, []Platform{p}, "", LangEnglish)
-	msg := &Message{SessionKey: "feishu:user1", ReplyCtx: "ctx"}
+	msg := &Message{SessionKey: "telegram:user1", ReplyCtx: "ctx"}
 
 	e.cmdDelete(p, msg, nil)
 
@@ -1623,13 +1623,13 @@ func TestCmdDelete_NoArgsOnCardPlatformShowsDeleteModeCard(t *testing.T) {
 }
 
 func TestDeleteMode_ToggleSelectionReturnsUpdatedCard(t *testing.T) {
-	p := &stubCardPlatform{stubPlatformEngine: stubPlatformEngine{n: "feishu"}}
+	p := &stubCardPlatform{stubPlatformEngine: stubPlatformEngine{n: "telegram"}}
 	agent := &stubDeleteAgent{stubListAgent: stubListAgent{sessions: []AgentSessionInfo{
 		{ID: "session-1", Summary: "One"},
 		{ID: "session-2", Summary: "Two"},
 	}}}
 	e := NewEngine("test", agent, []Platform{p}, "", LangEnglish)
-	msg := &Message{SessionKey: "feishu:user1", ReplyCtx: "ctx"}
+	msg := &Message{SessionKey: "telegram:user1", ReplyCtx: "ctx"}
 
 	e.cmdDelete(p, msg, nil)
 	card := e.handleCardNav("act:/delete-mode toggle session-2", msg.SessionKey)
@@ -1650,14 +1650,14 @@ func TestDeleteMode_ToggleSelectionReturnsUpdatedCard(t *testing.T) {
 }
 
 func TestDeleteMode_ConfirmAndSubmitDeletesSelectedSessions(t *testing.T) {
-	p := &stubCardPlatform{stubPlatformEngine: stubPlatformEngine{n: "feishu"}}
+	p := &stubCardPlatform{stubPlatformEngine: stubPlatformEngine{n: "telegram"}}
 	agent := &stubDeleteAgent{stubListAgent: stubListAgent{sessions: []AgentSessionInfo{
 		{ID: "session-1", Summary: "One"},
 		{ID: "session-2", Summary: "Two"},
 		{ID: "session-3", Summary: "Three"},
 	}}}
 	e := NewEngine("test", agent, []Platform{p}, "", LangEnglish)
-	msg := &Message{SessionKey: "feishu:user1", ReplyCtx: "ctx"}
+	msg := &Message{SessionKey: "telegram:user1", ReplyCtx: "ctx"}
 
 	e.cmdDelete(p, msg, nil)
 	_ = e.handleCardNav("act:/delete-mode toggle session-1", msg.SessionKey)
@@ -1685,14 +1685,14 @@ func TestDeleteMode_ConfirmAndSubmitDeletesSelectedSessions(t *testing.T) {
 }
 
 func TestDeleteMode_SubmitReportsMissingSelectedSessions(t *testing.T) {
-	p := &stubCardPlatform{stubPlatformEngine: stubPlatformEngine{n: "feishu"}}
+	p := &stubCardPlatform{stubPlatformEngine: stubPlatformEngine{n: "telegram"}}
 	agent := &stubDeleteAgent{stubListAgent: stubListAgent{sessions: []AgentSessionInfo{
 		{ID: "session-1", Summary: "One"},
 		{ID: "session-2", Summary: "Two"},
 		{ID: "session-3", Summary: "Three"},
 	}}}
 	e := NewEngine("test", agent, []Platform{p}, "", LangEnglish)
-	msg := &Message{SessionKey: "feishu:user1", ReplyCtx: "ctx"}
+	msg := &Message{SessionKey: "telegram:user1", ReplyCtx: "ctx"}
 
 	e.cmdDelete(p, msg, nil)
 	_ = e.handleCardNav("act:/delete-mode toggle session-1", msg.SessionKey)
@@ -1717,13 +1717,13 @@ func TestDeleteMode_SubmitReportsMissingSelectedSessions(t *testing.T) {
 }
 
 func TestDeleteMode_CancelReturnsListCard(t *testing.T) {
-	p := &stubCardPlatform{stubPlatformEngine: stubPlatformEngine{n: "feishu"}}
+	p := &stubCardPlatform{stubPlatformEngine: stubPlatformEngine{n: "telegram"}}
 	agent := &stubDeleteAgent{stubListAgent: stubListAgent{sessions: []AgentSessionInfo{
 		{ID: "session-1", Summary: "One"},
 		{ID: "session-2", Summary: "Two"},
 	}}}
 	e := NewEngine("test", agent, []Platform{p}, "", LangEnglish)
-	msg := &Message{SessionKey: "feishu:user1", ReplyCtx: "ctx"}
+	msg := &Message{SessionKey: "telegram:user1", ReplyCtx: "ctx"}
 
 	e.cmdDelete(p, msg, nil)
 	card := e.handleCardNav("act:/delete-mode cancel", msg.SessionKey)
@@ -1736,13 +1736,13 @@ func TestDeleteMode_CancelReturnsListCard(t *testing.T) {
 }
 
 func TestDeleteMode_ConfirmWithoutSelectionShowsHint(t *testing.T) {
-	p := &stubCardPlatform{stubPlatformEngine: stubPlatformEngine{n: "feishu"}}
+	p := &stubCardPlatform{stubPlatformEngine: stubPlatformEngine{n: "telegram"}}
 	agent := &stubDeleteAgent{stubListAgent: stubListAgent{sessions: []AgentSessionInfo{
 		{ID: "session-1", Summary: "One"},
 		{ID: "session-2", Summary: "Two"},
 	}}}
 	e := NewEngine("test", agent, []Platform{p}, "", LangEnglish)
-	msg := &Message{SessionKey: "feishu:user1", ReplyCtx: "ctx"}
+	msg := &Message{SessionKey: "telegram:user1", ReplyCtx: "ctx"}
 
 	e.cmdDelete(p, msg, nil)
 	card := e.handleCardNav("act:/delete-mode confirm", msg.SessionKey)
@@ -1755,14 +1755,14 @@ func TestDeleteMode_ConfirmWithoutSelectionShowsHint(t *testing.T) {
 }
 
 func TestDeleteMode_PageNavigationPreservesSelection(t *testing.T) {
-	p := &stubCardPlatform{stubPlatformEngine: stubPlatformEngine{n: "feishu"}}
+	p := &stubCardPlatform{stubPlatformEngine: stubPlatformEngine{n: "telegram"}}
 	sessions := make([]AgentSessionInfo, 0, 8)
 	for i := 1; i <= 8; i++ {
 		sessions = append(sessions, AgentSessionInfo{ID: fmt.Sprintf("session-%d", i), Summary: fmt.Sprintf("Session %d", i)})
 	}
 	agent := &stubDeleteAgent{stubListAgent: stubListAgent{sessions: sessions}}
 	e := NewEngine("test", agent, []Platform{p}, "", LangEnglish)
-	msg := &Message{SessionKey: "feishu:user1", ReplyCtx: "ctx"}
+	msg := &Message{SessionKey: "telegram:user1", ReplyCtx: "ctx"}
 
 	e.cmdDelete(p, msg, nil)
 	_ = e.handleCardNav("act:/delete-mode toggle session-1", msg.SessionKey)
@@ -1787,13 +1787,13 @@ func TestDeleteMode_PageNavigationPreservesSelection(t *testing.T) {
 }
 
 func TestDeleteMode_SubmitBlocksActiveSession(t *testing.T) {
-	p := &stubCardPlatform{stubPlatformEngine: stubPlatformEngine{n: "feishu"}}
+	p := &stubCardPlatform{stubPlatformEngine: stubPlatformEngine{n: "telegram"}}
 	agent := &stubDeleteAgent{stubListAgent: stubListAgent{sessions: []AgentSessionInfo{
 		{ID: "session-1", Summary: "One"},
 		{ID: "session-2", Summary: "Two"},
 	}}}
 	e := NewEngine("test", agent, []Platform{p}, "", LangEnglish)
-	msg := &Message{SessionKey: "feishu:user1", ReplyCtx: "ctx"}
+	msg := &Message{SessionKey: "telegram:user1", ReplyCtx: "ctx"}
 	e.sessions.GetOrCreateActive(msg.SessionKey).SetAgentSessionID("session-1", "test")
 
 	e.cmdDelete(p, msg, nil)
@@ -1811,13 +1811,13 @@ func TestDeleteMode_SubmitBlocksActiveSession(t *testing.T) {
 }
 
 func TestDeleteMode_ActiveSessionMarkedWithArrowAndNotSelectable(t *testing.T) {
-	p := &stubCardPlatform{stubPlatformEngine: stubPlatformEngine{n: "feishu"}}
+	p := &stubCardPlatform{stubPlatformEngine: stubPlatformEngine{n: "telegram"}}
 	agent := &stubDeleteAgent{stubListAgent: stubListAgent{sessions: []AgentSessionInfo{
 		{ID: "session-1", Summary: "One"},
 		{ID: "session-2", Summary: "Two"},
 	}}}
 	e := NewEngine("test", agent, []Platform{p}, "", LangEnglish)
-	msg := &Message{SessionKey: "feishu:user1", ReplyCtx: "ctx"}
+	msg := &Message{SessionKey: "telegram:user1", ReplyCtx: "ctx"}
 	e.sessions.GetOrCreateActive(msg.SessionKey).SetAgentSessionID("session-1", "test")
 
 	e.cmdDelete(p, msg, nil)
@@ -1840,14 +1840,14 @@ func TestDeleteMode_ActiveSessionMarkedWithArrowAndNotSelectable(t *testing.T) {
 }
 
 func TestDeleteMode_FormSubmitShowsConfirmThenDeletes(t *testing.T) {
-	p := &stubCardPlatform{stubPlatformEngine: stubPlatformEngine{n: "feishu"}}
+	p := &stubCardPlatform{stubPlatformEngine: stubPlatformEngine{n: "telegram"}}
 	agent := &stubDeleteAgent{stubListAgent: stubListAgent{sessions: []AgentSessionInfo{
 		{ID: "session-1", Summary: "One"},
 		{ID: "session-2", Summary: "Two"},
 		{ID: "session-3", Summary: "Three"},
 	}}}
 	e := NewEngine("test", agent, []Platform{p}, "", LangEnglish)
-	msg := &Message{SessionKey: "feishu:user1", ReplyCtx: "ctx"}
+	msg := &Message{SessionKey: "telegram:user1", ReplyCtx: "ctx"}
 
 	e.cmdDelete(p, msg, nil)
 	confirmCard := e.handleCardNav("act:/delete-mode form-submit session-1,session-3", msg.SessionKey)
@@ -2254,7 +2254,7 @@ func TestCmdUsage_Success(t *testing.T) {
 }
 
 func TestCmdUsage_UsesCardOnCardPlatform(t *testing.T) {
-	p := &stubCardPlatform{stubPlatformEngine: stubPlatformEngine{n: "feishu"}}
+	p := &stubCardPlatform{stubPlatformEngine: stubPlatformEngine{n: "telegram"}}
 	agent := &stubUsageAgent{
 		report: &UsageReport{
 			Email: "dev@example.com",
@@ -2612,7 +2612,7 @@ func TestBuildAskQuestionResponse(t *testing.T) {
 
 func TestSendAskQuestionPrompt_CardPlatform(t *testing.T) {
 	e := newTestEngine()
-	p := &stubCardPlatform{stubPlatformEngine: stubPlatformEngine{n: "feishu"}}
+	p := &stubCardPlatform{stubPlatformEngine: stubPlatformEngine{n: "telegram"}}
 	e.sendAskQuestionPrompt(p, "ctx", testQuestions(), 0)
 
 	if len(p.sentCards) != 1 {
@@ -2630,7 +2630,7 @@ func TestSendAskQuestionPrompt_CardPlatform(t *testing.T) {
 
 func TestSendAskQuestionPrompt_CardPlatform_MultiQuestion_ShowsIndex(t *testing.T) {
 	e := newTestEngine()
-	p := &stubCardPlatform{stubPlatformEngine: stubPlatformEngine{n: "feishu"}}
+	p := &stubCardPlatform{stubPlatformEngine: stubPlatformEngine{n: "telegram"}}
 	qs := testMultiQuestions()
 	e.sendAskQuestionPrompt(p, "ctx", qs, 0)
 
