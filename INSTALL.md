@@ -20,7 +20,7 @@ Don't guess values—always ask the user to choose via interactive prompts.
 ### Option A: npm (recommended for most users)
 
 ```bash
-npm install -g cc-connect
+npm install -g @atticux/cc-connect
 ```
 
 After installation, `cc-connect` binary will be available globally.
@@ -253,7 +253,7 @@ cc-connect --version
 ### npm users
 
 ```bash
-npm update -g cc-connect
+npm install -g @atticux/cc-connect
 ```
 
 ### Binary users

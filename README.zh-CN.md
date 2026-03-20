@@ -148,7 +148,7 @@ vim ~/.cc-connect/config.toml
 ```bash
 # npm
 npm install -g @atticux/cc-connect
-```
+
 # 二进制自更新
 cc-connect update           # 稳定版
 cc-connect update --pre     # Beta 版（含 pre-release）
