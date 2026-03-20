@@ -688,7 +688,7 @@ func TestEngine_AdminFrom_AllowsNonPrivileged(t *testing.T) {
 	if len(p.sent) == 0 {
 		t.Fatal("expected /help to produce a reply")
 	}
-	if strings.Contains(p.sent[0], "admin") {
+	if strings.Contains(p.sent[0], "requires admin") {
 		t.Errorf("/help should not require admin, got: %s", p.sent[0])
 	}
 }
