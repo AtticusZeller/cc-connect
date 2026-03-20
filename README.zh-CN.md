@@ -7,7 +7,7 @@
     <img src="https://github.com/AtticusZeller/cc-connect/actions/workflows/ci.yml/badge.svg" alt="CI Status"/>
   </a>
   <a href="https://github.com/AtticusZeller/cc-connect/releases">
-    <img src="https://img.shields.io/github/v/release/chenhg5/cc-connect?include_prereleases" alt="Release"/>
+    <img src="https://img.shields.io/github/v/release/AtticusZeller/cc-connect?include_prereleases" alt="Release"/>
   </a>
   <a href="https://www.npmjs.com/package/@atticux/cc-connect">
     <img src="https://img.shields.io/npm/dm/@atticux/cc-connect?logo=npm" alt="npm downloads"/>
@@ -86,7 +86,7 @@
 > **最简单的方式** — 把这段话发给 Claude Code 或其他 AI 编码 Agent，它会帮你完成整个安装和配置过程：
 
 ```bash
-请参考 https://raw.githubusercontent.com/chenhg5/cc-connect/refs/heads/main/INSTALL.md 帮我安装和配置 cc-connect
+请参考 https://raw.githubusercontent.com/AtticusZeller/cc-connect/refs/heads/main/INSTALL.md 帮我安装和配置 cc-connect
 ```
 
 ---
@@ -285,18 +285,18 @@ cc-connect send --file /absolute/path/to/report.pdf --image /absolute/path/to/ch
 ## 🙏 贡献者
 
 <a href="https://github.com/AtticusZeller/cc-connect/graphs/contributors">
-  <img src="https://contrib.rocks/image?repo=chenhg5/cc-connect&v=20250313" />
+  <img src="https://contrib.rocks/image?repo=AtticusZeller/cc-connect" />
 </a>
 
 ---
 
 ## ⭐ Star History
 
-<a href="https://www.star-history.com/#chenhg5/cc-connect&Date">
+<a href="https://www.star-history.com/#AtticusZeller/cc-connect&Date">
  <picture>
-   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=chenhg5/cc-connect&type=Date&theme=dark" />
-   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/svg?repos=chenhg5/cc-connect&type=Date" />
-   <img alt="Star History Chart" src="https://api.star-history.com/svg?repos=chenhg5/cc-connect&type=Date" />
+   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=AtticusZeller/cc-connect&type=Date&theme=dark" />
+   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/svg?repos=AtticusZeller/cc-connect&type=Date" />
+   <img alt="Star History Chart" src="https://api.star-history.com/svg?repos=AtticusZeller/cc-connect&type=Date" />
  </picture>
 </a>
 
