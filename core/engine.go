@@ -5355,10 +5355,6 @@ func (e *Engine) executeCardAction(cmd, args, sessionKey string) {
 		switcher.SetModel(target)
 		interactiveKey := e.interactiveKeyForSessionKey(sessionKey)
 		e.cleanupInteractiveState(interactiveKey)
-		s := e.sessions.GetOrCreateActive(sessionKey)
-		s.SetAgentSessionID("", "")
-		s.ClearHistory()
-		e.sessions.Save()
 
 	case "/reasoning":
 		if args == "" {
@@ -5378,10 +5374,6 @@ func (e *Engine) executeCardAction(cmd, args, sessionKey string) {
 				switcher.SetReasoningEffort(target)
 				interactiveKey := e.interactiveKeyForSessionKey(sessionKey)
 				e.cleanupInteractiveState(interactiveKey)
-				s := e.sessions.GetOrCreateActive(sessionKey)
-				s.SetAgentSessionID("", "")
-				s.ClearHistory()
-				e.sessions.Save()
 				return
 			}
 		}
