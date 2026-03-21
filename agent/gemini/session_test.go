@@ -1,9 +1,12 @@
 package gemini
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -493,5 +496,97 @@ func TestComputeLineDiff(t *testing.T) {
 				t.Errorf("computeLineDiff:\n  old=%q\n  new=%q\n  got=%q\n  want=%q", tt.old, tt.new_, got, tt.want)
 			}
 		})
+	}
+}
+
+func TestHandleResult_NoStatsLeakage(t *testing.T) {
+	gs := &geminiSession{
+		events: make(chan core.Event, 64),
+		ctx:    context.Background(),
+	}
+
+	gs.handleEvent(map[string]any{
+		"type":   "result",
+		"status": "success",
+		"stats": map[string]any{
+			"total_tokens": 100,
+		},
+	})
+
+	events := drainEvents(gs.events, 50*time.Millisecond)
+	if len(events) != 1 {
+		t.Fatalf("expected 1 event, got %d", len(events))
+	}
+	if events[0].Type != core.EventResult {
+		t.Errorf("expected EventResult, got %v", events[0].Type)
+	}
+	if strings.Contains(events[0].Content, "Stats:") {
+		t.Errorf("stats leaked into Content: %q", events[0].Content)
+	}
+}
+
+func TestReadLoop_RobustParsing(t *testing.T) {
+	gs := &geminiSession{
+		events: make(chan core.Event, 64),
+		ctx:    context.Background(),
+	}
+
+	pr, pw := io.Pipe()
+	defer pr.Close()
+
+	// Use a dummy cmd for readLoop cleanup logic
+	cmd := exec.Command("echo")
+	var stderrBuf bytes.Buffer
+
+	go func() {
+		// 1. Noise before JSON
+		pw.Write([]byte("MCP issues detected. Run /mcp list for status.{\"type\":\"init\",\"session_id\":\"s1\",\"model\":\"m1\"}\n"))
+		// 2. Multiple JSON objects on one line with noise
+		pw.Write([]byte("Noise {\"type\":\"message\",\"content\":\"Hello\",\"delta\":true} More Noise {\"type\":\"message\",\"content\":\" World\",\"delta\":true} End Noise\n"))
+		// 3. Invalid JSON followed by valid JSON
+		pw.Write([]byte("Invalid {json: here} But here is valid: {\"type\":\"result\",\"status\":\"success\"}\n"))
+		pw.Close()
+	}()
+
+	// We need to pass a context that we can cancel
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	gs.wg.Add(1)
+	go gs.readLoop(ctx, cmd, pr, &stderrBuf, nil)
+
+	// Wait long enough for all events to be processed
+	time.Sleep(100 * time.Millisecond)
+	events := drainEvents(gs.events, 100*time.Millisecond)
+
+	// Expected events:
+	// 1. init (from line 1) -> EventText
+	// 2. message 'Hello' (from line 2) -> EventText
+	// 3. message ' World' (from line 2) -> EventText
+	// 4. result (from line 3) -> EventResult
+	// (May have an error event from cmd.Wait, we filter it out for this test)
+
+	var filtered []core.Event
+	for _, e := range events {
+		if e.Type != core.EventError {
+			filtered = append(filtered, e)
+		}
+	}
+
+	if len(filtered) != 4 {
+		t.Fatalf("expected 4 non-error events, got %d", len(filtered))
+	}
+
+	if filtered[0].Type != core.EventText || filtered[0].SessionID != "s1" {
+		t.Errorf("event 0: expected EventText with session_id s1, got %v %q", filtered[0].Type, filtered[0].SessionID)
+	}
+	if filtered[1].Type != core.EventText || filtered[1].Content != "Hello" {
+		t.Errorf("event 1: expected EventText 'Hello', got %v %q", filtered[1].Type, filtered[1].Content)
+	}
+	if filtered[2].Type != core.EventText || filtered[2].Content != " World" {
+		t.Errorf("event 2: expected EventText ' World', got %v %q", filtered[2].Type, filtered[2].Content)
+	}
+	if filtered[3].Type != core.EventResult {
+		t.Errorf("event 3: expected EventResult, got %v", filtered[3].Type)
 	}
 }
