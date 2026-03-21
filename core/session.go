@@ -82,12 +82,12 @@ func (s *Session) SetAgentSessionID(id, agentType string) {
 	s.AgentType = agentType
 }
 
-// CompareAndSetAgentSessionID sets the agent session ID only if it is currently empty.
-// Returns true if the value was set, false if it was already non-empty.
+// CompareAndSetAgentSessionID atomically updates the agent session ID and agent type.
+// Returns true if the value was changed, false if the new value matches current.
 func (s *Session) CompareAndSetAgentSessionID(id, agentType string) bool {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	if s.AgentSessionID != "" {
+	if s.AgentSessionID == id && s.AgentType == agentType {
 		return false
 	}
 	s.AgentSessionID = id

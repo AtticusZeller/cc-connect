@@ -387,3 +387,140 @@ func TestSession_ConcurrentGetSet(t *testing.T) {
 		t.Errorf("final GetAgentSessionID = %q, want %q", got, "id")
 	}
 }
+
+// TestCompareAndSetAgentSessionID_UpdatesWhenDifferent tests that CompareAndSetAgentSessionID
+// correctly updates the session ID when the new value is different.
+func TestCompareAndSetAgentSessionID_UpdatesWhenDifferent(t *testing.T) {
+	s := &Session{}
+
+	// Initial set
+	if !s.CompareAndSetAgentSessionID("chat-123", "gemini") {
+		t.Error("first CompareAndSet should succeed")
+	}
+
+	// Verify values
+	if got := s.GetAgentSessionID(); got != "chat-123" {
+		t.Errorf("GetAgentSessionID = %q, want chat-123", got)
+	}
+	if gotAgentType := s.AgentType; gotAgentType != "gemini" {
+		t.Errorf("GetAgentType = %q, want gemini", gotAgentType)
+	}
+
+	// Update with same value - should skip
+	if s.CompareAndSetAgentSessionID("chat-123", "gemini") {
+		t.Error("CompareAndSet with same value should return false")
+	}
+
+	// Verify values unchanged
+	if got := s.GetAgentSessionID(); got != "chat-123" {
+		t.Errorf("GetAgentSessionID after skip = %q, want chat-123", got)
+	}
+	if gotAgentType := s.AgentType; gotAgentType != "gemini" {
+		t.Errorf("GetAgentType after skip = %q, want gemini", gotAgentType)
+	}
+
+	// Update with different session ID - should update
+	if !s.CompareAndSetAgentSessionID("chat-456", "gemini") {
+		t.Error("CompareAndSet with different session ID should succeed")
+	}
+
+	// Verify new values
+	if got := s.GetAgentSessionID(); got != "chat-456" {
+		t.Errorf("GetAgentSessionID after update = %q, want chat-456", got)
+	}
+	if gotAgentType := s.AgentType; gotAgentType != "gemini" {
+		t.Errorf("GetAgentType after update = %q, want gemini", gotAgentType)
+	}
+}
+
+// TestCompareAndSetAgentSessionID_UpdatesAgentType tests that CompareAndSetAgentSessionID
+// correctly updates when agent type changes.
+func TestCompareAndSetAgentSessionID_UpdatesAgentType(t *testing.T) {
+	s := &Session{}
+
+	// Initial set
+	if !s.CompareAndSetAgentSessionID("chat-123", "gemini") {
+		t.Error("first CompareAndSet should succeed")
+	}
+
+	// Update with different agent type - should update
+	if !s.CompareAndSetAgentSessionID("chat-123", "claudecode") {
+		t.Error("CompareAndSet with different agent type should succeed")
+	}
+
+	// Verify agent type updated
+	if gotAgentType := s.AgentType; gotAgentType != "claudecode" {
+		t.Errorf("GetAgentType after update = %q, want claudecode", gotAgentType)
+	}
+}
+
+// TestCompareAndSetAgentSessionID_SkipsWhenBothSame tests that CompareAndSetAgentSessionID
+// correctly skips updating when both ID and agent type are the same.
+func TestCompareAndSetAgentSessionID_SkipsWhenBothSame(t *testing.T) {
+	s := &Session{}
+
+	// Initial set
+	if !s.CompareAndSetAgentSessionID("chat-123", "gemini") {
+		t.Error("first CompareAndSet should succeed")
+	}
+
+	// Update with same values - should skip
+	if s.CompareAndSetAgentSessionID("chat-123", "gemini") {
+		t.Error("CompareAndSet with same values should return false")
+	}
+
+	// Verify no changes
+	if got := s.GetAgentSessionID(); got != "chat-123" {
+		t.Errorf("GetAgentSessionID after skip = %q, want chat-123", got)
+	}
+	if gotAgentType := s.AgentType; gotAgentType != "gemini" {
+		t.Errorf("GetAgentType after skip = %q, want gemini", gotAgentType)
+	}
+
+	// Update with same ID but different agent type - should update
+	if !s.CompareAndSetAgentSessionID("chat-123", "claudecode") {
+		t.Error("CompareAndSet with different agent type should succeed")
+	}
+
+	// Verify agent type updated
+	if gotAgentType := s.AgentType; gotAgentType != "claudecode" {
+		t.Errorf("GetAgentType after type change = %q, want claudecode", gotAgentType)
+	}
+
+	// Session ID should still be the same
+	if got := s.GetAgentSessionID(); got != "chat-123" {
+		t.Errorf("GetAgentSessionID after type change = %q, want chat-123", got)
+	}
+}
+
+// TestCompareAndSetAgentSessionID_UpdatesWhenIDEmpty tests that CompareAndSetAgentSessionID
+// works correctly when updating from empty to a value.
+func TestCompareAndSetAgentSessionID_UpdatesWhenIDEmpty(t *testing.T) {
+	s := &Session{}
+
+	// Update when empty
+	if !s.CompareAndSetAgentSessionID("chat-123", "gemini") {
+		t.Error("CompareAndSet from empty should succeed")
+	}
+
+	// Verify values
+	if got := s.GetAgentSessionID(); got != "chat-123" {
+		t.Errorf("GetAgentSessionID = %q, want chat-123", got)
+	}
+	if gotAgentType := s.AgentType; gotAgentType != "gemini" {
+		t.Errorf("GetAgentType = %q, want gemini", gotAgentType)
+	}
+
+	// Update to a different value when already set
+	if !s.CompareAndSetAgentSessionID("chat-456", "gemini") {
+		t.Error("CompareAndSet with different ID should succeed")
+	}
+
+	// Verify updated values
+	if got := s.GetAgentSessionID(); got != "chat-456" {
+		t.Errorf("GetAgentSessionID after second update = %q, want chat-456", got)
+	}
+	if gotAgentType := s.AgentType; gotAgentType != "gemini" {
+		t.Errorf("GetAgentType after second update = %q, want gemini", gotAgentType)
+	}
+}

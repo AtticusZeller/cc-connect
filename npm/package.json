@@ -1,6 +1,6 @@
 {
   "name": "@atticux/cc-connect",
-  "version": "1.2.2-beta.6",
+  "version": "1.2.2-beta.7",
   "description": "Bridge local AI coding agents (Claude Code, Gemini CLI) to Telegram",
   "keywords": [
     "claude-code",
