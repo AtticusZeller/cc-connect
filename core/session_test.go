@@ -1,6 +1,7 @@
 package core
 
 import (
+	"os"
 	"path/filepath"
 	"sync"
 	"testing"
@@ -38,6 +39,23 @@ func TestSessionManager_NewSession(t *testing.T) {
 	active := sm.GetOrCreateActive("user1")
 	if active.ID != s2.ID {
 		t.Error("latest session should be active")
+	}
+}
+
+func TestSessionManager_NewSideSession(t *testing.T) {
+	sm := NewSessionManager("")
+	main := sm.GetOrCreateActive("user1")
+	side := sm.NewSideSession("user1", "cron-job")
+
+	if side.ID == main.ID {
+		t.Fatal("side session should be a new record")
+	}
+	if sm.ActiveSessionID("user1") != main.ID {
+		t.Errorf("active session should stay main %q, got %q", main.ID, sm.ActiveSessionID("user1"))
+	}
+	list := sm.ListSessions("user1")
+	if len(list) != 2 {
+		t.Fatalf("want 2 sessions for user1, got %d", len(list))
 	}
 }
 
@@ -225,6 +243,91 @@ func TestSession_GetAgentSessionID(t *testing.T) {
 	}
 }
 
+func TestSession_SetAgentSessionID_RejectsContinueSentinel(t *testing.T) {
+	s := &Session{}
+	s.SetAgentSessionID("real", "ag")
+	s.SetAgentSessionID(ContinueSession, "ag")
+	if got := s.GetAgentSessionID(); got != "real" {
+		t.Fatalf("ContinueSession must not clobber stored id, got %q", got)
+	}
+	s.SetAgentSessionID("", "")
+	if got := s.GetAgentSessionID(); got != "" {
+		t.Fatalf("expected clear, got %q", got)
+	}
+}
+
+func TestSession_CompareAndSet_ReplacesContinueSentinel(t *testing.T) {
+	s := &Session{}
+	s.mu.Lock()
+	s.AgentSessionID = ContinueSession
+	s.mu.Unlock()
+	if !s.CompareAndSetAgentSessionID("uuid-1", "pi") {
+		t.Fatal("expected CompareAndSet to replace erroneous ContinueSession slot")
+	}
+	if s.GetAgentSessionID() != "uuid-1" {
+		t.Fatalf("GetAgentSessionID = %q, want uuid-1", s.GetAgentSessionID())
+	}
+	if s.CompareAndSetAgentSessionID("uuid-2", "pi") {
+		t.Fatal("expected second CompareAndSet to fail when real id already set")
+	}
+}
+
+func TestSession_SetAgentInfo_NormalizesContinueSentinel(t *testing.T) {
+	s := &Session{}
+	s.SetAgentInfo(ContinueSession, "pi", "n")
+	if s.GetAgentSessionID() != "" {
+		t.Fatalf("SetAgentInfo(ContinueSession) should store empty id, got %q", s.GetAgentSessionID())
+	}
+}
+
+func TestSessionManager_Load_SanitizesContinueSentinel(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "sessions.json")
+	raw := `{
+  "sessions": {
+    "s1": {
+      "id": "s1",
+      "name": "default",
+      "agent_session_id": "__continue__",
+      "agent_type": "pi",
+      "history": [],
+      "created_at": "2020-01-01T00:00:00Z",
+      "updated_at": "2020-01-01T00:00:00Z"
+    }
+  },
+  "active_session": {"user1": "s1"},
+  "user_sessions": {"user1": ["s1"]},
+  "counter": 1
+}`
+	if err := os.WriteFile(path, []byte(raw), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	sm := NewSessionManager(path)
+	s := sm.GetOrCreateActive("user1")
+	if got := s.GetAgentSessionID(); got != "" {
+		t.Fatalf("loaded session should clear ContinueSession, got %q", got)
+	}
+}
+
+func TestSessionManager_Save_StripsContinueSentinel(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "sessions.json")
+	sm := NewSessionManager(path)
+	sm.NewSession("u1", "x")
+	s := sm.GetOrCreateActive("u1")
+	s.mu.Lock()
+	s.AgentSessionID = ContinueSession
+	s.AgentType = "pi"
+	s.mu.Unlock()
+	sm.Save()
+	sm2 := NewSessionManager(path)
+	// Same user key should reload the same logical session without sentinel.
+	s2 := sm2.GetOrCreateActive("u1")
+	if got := s2.GetAgentSessionID(); got != "" {
+		t.Fatalf("after save+reload want empty agent_session_id, got %q", got)
+	}
+}
+
 func TestSession_GetName(t *testing.T) {
 	s := &Session{Name: "test-session"}
 	if got := s.GetName(); got != "test-session" {
@@ -237,7 +340,7 @@ func TestSessionManager_InvalidateForAgent(t *testing.T) {
 
 	// Create sessions with different agent types
 	s1 := sm.NewSession("user1", "sess1")
-	s1.SetAgentSessionID("old-id-1", "gemini")
+	s1.SetAgentSessionID("old-id-1", "opencode")
 
 	s2 := sm.NewSession("user2", "sess2")
 	s2.SetAgentSessionID("old-id-2", "claudecode")
@@ -249,9 +352,9 @@ func TestSessionManager_InvalidateForAgent(t *testing.T) {
 
 	sm.InvalidateForAgent("claudecode")
 
-	// s1: gemini → should be invalidated
+	// s1: opencode → should be invalidated
 	if got := s1.GetAgentSessionID(); got != "" {
-		t.Errorf("s1 (gemini) AgentSessionID = %q, want empty (should be invalidated)", got)
+		t.Errorf("s1 (opencode) AgentSessionID = %q, want empty (should be invalidated)", got)
 	}
 	if s1.AgentType != "claudecode" {
 		t.Errorf("s1 AgentType = %q, want %q after invalidation", s1.AgentType, "claudecode")
@@ -281,11 +384,11 @@ func TestSessionManager_InvalidateForAgent(t *testing.T) {
 
 func TestSessionManager_UserMeta(t *testing.T) {
 	sm := NewSessionManager("")
-	sm.GetOrCreateActive("telegram:chat_1:user_1")
+	sm.GetOrCreateActive("feishu:oc_abc:ou_xyz")
 
 	// Set UserName
-	sm.UpdateUserMeta("telegram:chat_1:user_1", "Zhang San", "")
-	meta := sm.GetUserMeta("telegram:chat_1:user_1")
+	sm.UpdateUserMeta("feishu:oc_abc:ou_xyz", "Zhang San", "")
+	meta := sm.GetUserMeta("feishu:oc_abc:ou_xyz")
 	if meta == nil || meta.UserName != "Zhang San" {
 		t.Errorf("expected UserName='Zhang San', got %+v", meta)
 	}
@@ -294,15 +397,15 @@ func TestSessionManager_UserMeta(t *testing.T) {
 	}
 
 	// Merge: add ChatName without losing UserName
-	sm.UpdateUserMeta("telegram:chat_1:user_1", "", "Test Group")
-	meta = sm.GetUserMeta("telegram:chat_1:user_1")
+	sm.UpdateUserMeta("feishu:oc_abc:ou_xyz", "", "Test Group")
+	meta = sm.GetUserMeta("feishu:oc_abc:ou_xyz")
 	if meta.UserName != "Zhang San" || meta.ChatName != "Test Group" {
 		t.Errorf("expected merge, got %+v", meta)
 	}
 
 	// No-op for empty values
-	sm.UpdateUserMeta("telegram:chat_1:user_1", "", "")
-	meta = sm.GetUserMeta("telegram:chat_1:user_1")
+	sm.UpdateUserMeta("feishu:oc_abc:ou_xyz", "", "")
+	meta = sm.GetUserMeta("feishu:oc_abc:ou_xyz")
 	if meta.UserName != "Zhang San" || meta.ChatName != "Test Group" {
 		t.Errorf("expected no change, got %+v", meta)
 	}
@@ -318,12 +421,12 @@ func TestSessionManager_UserMetaPersistence(t *testing.T) {
 	path := filepath.Join(dir, "sessions.json")
 
 	sm1 := NewSessionManager(path)
-	sm1.NewSession("telegram:chat_1:user_1", "test")
-	sm1.UpdateUserMeta("telegram:chat_1:user_1", "Zhang San", "Group Name")
+	sm1.NewSession("feishu:oc_abc:ou_xyz", "test")
+	sm1.UpdateUserMeta("feishu:oc_abc:ou_xyz", "Zhang San", "Group Name")
 	sm1.Save()
 
 	sm2 := NewSessionManager(path)
-	meta := sm2.GetUserMeta("telegram:chat_1:user_1")
+	meta := sm2.GetUserMeta("feishu:oc_abc:ou_xyz")
 	if meta == nil || meta.UserName != "Zhang San" || meta.ChatName != "Group Name" {
 		t.Errorf("expected persisted meta, got %+v", meta)
 	}
@@ -333,13 +436,13 @@ func TestSessionManager_DeleteByAgentSessionID(t *testing.T) {
 	sm := NewSessionManager("")
 
 	s1 := sm.NewSession("user1", "one")
-	s1.SetAgentSessionID("agent-1", "gemini")
+	s1.SetAgentSessionID("agent-1", "codex")
 
 	s2 := sm.NewSession("user2", "two")
-	s2.SetAgentSessionID("agent-2", "gemini")
+	s2.SetAgentSessionID("agent-2", "codex")
 
 	s3 := sm.NewSession("user3", "three")
-	s3.SetAgentSessionID("agent-1", "gemini")
+	s3.SetAgentSessionID("agent-1", "codex")
 
 	if removed := sm.DeleteByAgentSessionID("agent-1"); removed != 2 {
 		t.Fatalf("removed = %d, want 2", removed)
@@ -388,139 +491,14 @@ func TestSession_ConcurrentGetSet(t *testing.T) {
 	}
 }
 
-// TestCompareAndSetAgentSessionID_UpdatesWhenDifferent tests that CompareAndSetAgentSessionID
-// correctly updates the session ID when the new value is different.
-func TestCompareAndSetAgentSessionID_UpdatesWhenDifferent(t *testing.T) {
-	s := &Session{}
-
-	// Initial set
-	if !s.CompareAndSetAgentSessionID("chat-123", "gemini") {
-		t.Error("first CompareAndSet should succeed")
+func TestSessionManager_StorePath(t *testing.T) {
+	sm := NewSessionManager("/var/data/sessions")
+	if got := sm.StorePath(); got != "/var/data/sessions" {
+		t.Errorf("StorePath() = %q, want %q", got, "/var/data/sessions")
 	}
 
-	// Verify values
-	if got := s.GetAgentSessionID(); got != "chat-123" {
-		t.Errorf("GetAgentSessionID = %q, want chat-123", got)
-	}
-	if gotAgentType := s.AgentType; gotAgentType != "gemini" {
-		t.Errorf("GetAgentType = %q, want gemini", gotAgentType)
-	}
-
-	// Update with same value - should skip
-	if s.CompareAndSetAgentSessionID("chat-123", "gemini") {
-		t.Error("CompareAndSet with same value should return false")
-	}
-
-	// Verify values unchanged
-	if got := s.GetAgentSessionID(); got != "chat-123" {
-		t.Errorf("GetAgentSessionID after skip = %q, want chat-123", got)
-	}
-	if gotAgentType := s.AgentType; gotAgentType != "gemini" {
-		t.Errorf("GetAgentType after skip = %q, want gemini", gotAgentType)
-	}
-
-	// Update with different session ID - should update
-	if !s.CompareAndSetAgentSessionID("chat-456", "gemini") {
-		t.Error("CompareAndSet with different session ID should succeed")
-	}
-
-	// Verify new values
-	if got := s.GetAgentSessionID(); got != "chat-456" {
-		t.Errorf("GetAgentSessionID after update = %q, want chat-456", got)
-	}
-	if gotAgentType := s.AgentType; gotAgentType != "gemini" {
-		t.Errorf("GetAgentType after update = %q, want gemini", gotAgentType)
-	}
-}
-
-// TestCompareAndSetAgentSessionID_UpdatesAgentType tests that CompareAndSetAgentSessionID
-// correctly updates when agent type changes.
-func TestCompareAndSetAgentSessionID_UpdatesAgentType(t *testing.T) {
-	s := &Session{}
-
-	// Initial set
-	if !s.CompareAndSetAgentSessionID("chat-123", "gemini") {
-		t.Error("first CompareAndSet should succeed")
-	}
-
-	// Update with different agent type - should update
-	if !s.CompareAndSetAgentSessionID("chat-123", "claudecode") {
-		t.Error("CompareAndSet with different agent type should succeed")
-	}
-
-	// Verify agent type updated
-	if gotAgentType := s.AgentType; gotAgentType != "claudecode" {
-		t.Errorf("GetAgentType after update = %q, want claudecode", gotAgentType)
-	}
-}
-
-// TestCompareAndSetAgentSessionID_SkipsWhenBothSame tests that CompareAndSetAgentSessionID
-// correctly skips updating when both ID and agent type are the same.
-func TestCompareAndSetAgentSessionID_SkipsWhenBothSame(t *testing.T) {
-	s := &Session{}
-
-	// Initial set
-	if !s.CompareAndSetAgentSessionID("chat-123", "gemini") {
-		t.Error("first CompareAndSet should succeed")
-	}
-
-	// Update with same values - should skip
-	if s.CompareAndSetAgentSessionID("chat-123", "gemini") {
-		t.Error("CompareAndSet with same values should return false")
-	}
-
-	// Verify no changes
-	if got := s.GetAgentSessionID(); got != "chat-123" {
-		t.Errorf("GetAgentSessionID after skip = %q, want chat-123", got)
-	}
-	if gotAgentType := s.AgentType; gotAgentType != "gemini" {
-		t.Errorf("GetAgentType after skip = %q, want gemini", gotAgentType)
-	}
-
-	// Update with same ID but different agent type - should update
-	if !s.CompareAndSetAgentSessionID("chat-123", "claudecode") {
-		t.Error("CompareAndSet with different agent type should succeed")
-	}
-
-	// Verify agent type updated
-	if gotAgentType := s.AgentType; gotAgentType != "claudecode" {
-		t.Errorf("GetAgentType after type change = %q, want claudecode", gotAgentType)
-	}
-
-	// Session ID should still be the same
-	if got := s.GetAgentSessionID(); got != "chat-123" {
-		t.Errorf("GetAgentSessionID after type change = %q, want chat-123", got)
-	}
-}
-
-// TestCompareAndSetAgentSessionID_UpdatesWhenIDEmpty tests that CompareAndSetAgentSessionID
-// works correctly when updating from empty to a value.
-func TestCompareAndSetAgentSessionID_UpdatesWhenIDEmpty(t *testing.T) {
-	s := &Session{}
-
-	// Update when empty
-	if !s.CompareAndSetAgentSessionID("chat-123", "gemini") {
-		t.Error("CompareAndSet from empty should succeed")
-	}
-
-	// Verify values
-	if got := s.GetAgentSessionID(); got != "chat-123" {
-		t.Errorf("GetAgentSessionID = %q, want chat-123", got)
-	}
-	if gotAgentType := s.AgentType; gotAgentType != "gemini" {
-		t.Errorf("GetAgentType = %q, want gemini", gotAgentType)
-	}
-
-	// Update to a different value when already set
-	if !s.CompareAndSetAgentSessionID("chat-456", "gemini") {
-		t.Error("CompareAndSet with different ID should succeed")
-	}
-
-	// Verify updated values
-	if got := s.GetAgentSessionID(); got != "chat-456" {
-		t.Errorf("GetAgentSessionID after second update = %q, want chat-456", got)
-	}
-	if gotAgentType := s.AgentType; gotAgentType != "gemini" {
-		t.Errorf("GetAgentType after second update = %q, want gemini", gotAgentType)
+	sm2 := NewSessionManager("")
+	if got := sm2.StorePath(); got != "" {
+		t.Errorf("StorePath() empty = %q, want empty string", got)
 	}
 }

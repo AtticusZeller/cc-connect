@@ -10,6 +10,10 @@ import (
 	"time"
 )
 
+// ContinueSession is a sentinel value for AgentSessionID that tells the agent
+// to use --continue (resume most recent session) instead of a specific session ID.
+const ContinueSession = "__continue__"
+
 // Session tracks one conversation between a user and the agent.
 type Session struct {
 	ID             string         `json:"id"`
@@ -53,6 +57,9 @@ func (s *Session) AddHistory(role, content string) {
 
 // SetAgentInfo atomically sets the agent session ID, agent type, and name.
 func (s *Session) SetAgentInfo(agentSessionID, agentType, name string) {
+	if agentSessionID == ContinueSession {
+		agentSessionID = ""
+	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.AgentSessionID = agentSessionID
@@ -75,24 +82,41 @@ func (s *Session) GetName() string {
 }
 
 // SetAgentSessionID atomically sets the agent session ID and agent type.
+// The ContinueSession sentinel is never persisted — it is only used transiently
+// when starting an agent (see engine); storing it on disk breaks resume (#255).
 func (s *Session) SetAgentSessionID(id, agentType string) {
+	if id == ContinueSession {
+		return
+	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.AgentSessionID = id
 	s.AgentType = agentType
 }
 
-// CompareAndSetAgentSessionID atomically updates the agent session ID and agent type.
-// Returns true if the value was changed, false if the new value matches current.
+// CompareAndSetAgentSessionID sets the agent session ID only if it is currently
+// empty or still holds the erroneous persisted ContinueSession sentinel.
+// Returns true if the value was set, false if a real session ID was already stored.
 func (s *Session) CompareAndSetAgentSessionID(id, agentType string) bool {
+	if id == "" || id == ContinueSession {
+		return false
+	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	if s.AgentSessionID == id && s.AgentType == agentType {
+	if s.AgentSessionID != "" && s.AgentSessionID != ContinueSession {
 		return false
 	}
 	s.AgentSessionID = id
 	s.AgentType = agentType
 	return true
+}
+
+func (s *Session) stripContinueSessionSentinel() {
+	s.mu.Lock()
+	if s.AgentSessionID == ContinueSession {
+		s.AgentSessionID = ""
+	}
+	s.mu.Unlock()
 }
 
 func (s *Session) ClearHistory() {
@@ -126,7 +150,7 @@ type sessionSnapshot struct {
 	ActiveSession map[string]string    `json:"active_session"`
 	UserSessions  map[string][]string  `json:"user_sessions"`
 	Counter       int64                `json:"counter"`
-	SessionNames  map[string]string    `json:"session_names,omitempty"`  // agent session ID → custom name
+	SessionNames  map[string]string    `json:"session_names,omitempty"` // agent session ID → custom name
 	UserMeta      map[string]*UserMeta `json:"user_meta,omitempty"`     // sessionKey → display info
 }
 
@@ -186,6 +210,26 @@ func (sm *SessionManager) NewSession(userKey, name string) *Session {
 	sm.mu.Lock()
 	defer sm.mu.Unlock()
 	s := sm.createLocked(userKey, name)
+	sm.saveLocked()
+	return s
+}
+
+// NewSideSession registers a new session for userKey without changing the active
+// session. Used for isolated one-off runs (e.g. cron with session_mode=new_per_run)
+// so the user's current chat remains the default target for normal messages.
+func (sm *SessionManager) NewSideSession(userKey, name string) *Session {
+	sm.mu.Lock()
+	defer sm.mu.Unlock()
+	id := sm.nextID()
+	now := time.Now()
+	s := &Session{
+		ID:        id,
+		Name:      name,
+		CreatedAt: now,
+		UpdatedAt: now,
+	}
+	sm.sessions[id] = s
+	sm.userSessions[userKey] = append(sm.userSessions[userKey], id)
 	sm.saveLocked()
 	return s
 }
@@ -380,10 +424,15 @@ func (sm *SessionManager) saveLocked() {
 	snapSessions := make(map[string]*Session, len(sm.sessions))
 	for id, s := range sm.sessions {
 		s.mu.Lock()
+		agentSID := s.AgentSessionID
+		if agentSID == ContinueSession {
+			agentSID = ""
+			s.AgentSessionID = ""
+		}
 		snapSessions[id] = &Session{
 			ID:             s.ID,
 			Name:           s.Name,
-			AgentSessionID: s.AgentSessionID,
+			AgentSessionID: agentSID,
 			AgentType:      s.AgentType,
 			History:        append([]HistoryEntry(nil), s.History...),
 			CreatedAt:      s.CreatedAt,
@@ -450,12 +499,16 @@ func (sm *SessionManager) load() {
 		sm.userMeta = make(map[string]*UserMeta)
 	}
 
+	for _, s := range sm.sessions {
+		s.stripContinueSessionSentinel()
+	}
+
 	slog.Info("session: loaded from disk", "path", sm.storePath, "sessions", len(sm.sessions))
 }
 
 // InvalidateForAgent clears AgentSessionID on all sessions whose AgentType
 // does not match the current agent. This handles the case where the user
-// switches agent types (e.g. claudecode → gemini) and stale session IDs from the
+// switches agent types (e.g. opencode → pi) and stale session IDs from the
 // old agent would cause errors.
 func (sm *SessionManager) InvalidateForAgent(agentType string) {
 	sm.mu.Lock()
