@@ -176,6 +176,8 @@ type Engine struct {
 	relayManager     *RelayManager
 	eventIdleTimeout time.Duration
 	dirHistory       *DirHistory
+	baseWorkDir      string
+	projectState     *ProjectStateStore
 
 	// Multi-workspace mode
 	multiWorkspace    bool
@@ -626,6 +628,14 @@ func (e *Engine) RelayManager() *RelayManager {
 
 func (e *Engine) SetDirHistory(dh *DirHistory) {
 	e.dirHistory = dh
+}
+
+func (e *Engine) SetBaseWorkDir(dir string) {
+	e.baseWorkDir = dir
+}
+
+func (e *Engine) SetProjectStateStore(store *ProjectStateStore) {
+	e.projectState = store
 }
 
 // RemoveCommand removes a custom command by name. Returns false if not found.
@@ -1743,7 +1753,11 @@ func (e *Engine) getOrCreateInteractiveStateWith(sessionKey string, p Platform, 
 	}
 
 	if newID := agentSession.CurrentSessionID(); newID != "" {
-		if session.CompareAndSetAgentSessionID(newID, agent.Name()) {
+		if session.AgentSessionID == ContinueSession {
+			// Sentinel was persisted (e.g. after restart). Replace with real ID and save.
+			session.SetAgentSessionID(newID, agent.Name())
+			sessions.Save()
+		} else if session.CompareAndSetAgentSessionID(newID, agent.Name()) {
 			sessions.Save()
 		}
 	}
@@ -3033,6 +3047,36 @@ func (e *Engine) cmdDir(p Platform, msg *Message, args []string) {
 		case "help", "-h", "--help":
 			e.reply(p, msg.ReplyCtx, e.i18n.T(MsgDirUsage))
 			return
+		case "reset":
+			baseDir := strings.TrimSpace(e.baseWorkDir)
+			if baseDir == "" {
+				baseDir = currentDir
+			}
+			if baseDir == "" {
+				baseDir, _ = os.Getwd()
+			}
+			if absDir, err := filepath.Abs(baseDir); err == nil {
+				baseDir = absDir
+			}
+
+			switcher.SetWorkDir(baseDir)
+			e.cleanupInteractiveState(interactiveKey)
+
+			s := sessions.GetOrCreateActive(msg.SessionKey)
+			s.SetAgentSessionID("", "")
+			s.ClearHistory()
+			sessions.Save()
+
+			if e.projectState != nil {
+				e.projectState.ClearWorkDirOverride()
+				e.projectState.Save()
+			}
+			if e.dirHistory != nil {
+				e.dirHistory.Add(e.name, baseDir)
+			}
+
+			e.reply(p, msg.ReplyCtx, e.i18n.Tf(MsgDirReset, baseDir))
+			return
 		}
 	}
 
@@ -3074,6 +3118,9 @@ func (e *Engine) cmdDir(p Platform, msg *Message, args []string) {
 			newDir = filepath.Join(baseDir, newDir)
 		}
 	}
+	if absDir, err := filepath.Abs(newDir); err == nil {
+		newDir = absDir
+	}
 
 	info, err := os.Stat(newDir)
 	if err != nil || !info.IsDir() {
@@ -3092,6 +3139,10 @@ func (e *Engine) cmdDir(p Platform, msg *Message, args []string) {
 	// Add to history
 	if e.dirHistory != nil {
 		e.dirHistory.Add(e.name, newDir)
+	}
+	if e.projectState != nil {
+		e.projectState.SetWorkDirOverride(newDir)
+		e.projectState.Save()
 	}
 
 	e.reply(p, msg.ReplyCtx, e.i18n.Tf(MsgDirChanged, newDir))
