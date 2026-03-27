@@ -15,10 +15,10 @@ import (
 	"syscall"
 	"time"
 
-	ccconnect "github.com/AtticusZeller/cc-connect"
-	"github.com/AtticusZeller/cc-connect/config"
-	"github.com/AtticusZeller/cc-connect/core"
-	"github.com/AtticusZeller/cc-connect/daemon"
+	ccconnect "github.com/chenhg5/cc-connect"
+	"github.com/chenhg5/cc-connect/config"
+	"github.com/chenhg5/cc-connect/core"
+	"github.com/chenhg5/cc-connect/daemon"
 	// Agent and platform imports are in separate plugin_*.go files
 	// controlled by build tags. See Makefile for selective compilation.
 )
@@ -61,6 +61,12 @@ func main() {
 			return
 		case "daemon":
 			runDaemon(os.Args[2:])
+			return
+		case "feishu":
+			runFeishu(os.Args[2:])
+			return
+		case "weixin":
+			runWeixin(os.Args[2:])
 			return
 		}
 	}
@@ -153,7 +159,13 @@ func main() {
 
 		var platforms []core.Platform
 		for _, pc := range proj.Platforms {
-			p, err := core.CreatePlatform(pc.Type, pc.Options)
+			opts := make(map[string]any, len(pc.Options)+2)
+			for k, v := range pc.Options {
+				opts[k] = v
+			}
+			opts["cc_data_dir"] = cfg.DataDir
+			opts["cc_project"] = proj.Name
+			p, err := core.CreatePlatform(pc.Type, opts)
 			if err != nil {
 				slog.Error("failed to create platform", "project", proj.Name, "type", pc.Type, "error", err)
 				os.Exit(1)
@@ -184,6 +196,11 @@ func main() {
 		}
 
 		engine := core.NewEngine(proj.Name, agent, platforms, sessionFile, lang)
+		showCtx := true
+		if proj.ShowContextIndicator != nil {
+			showCtx = *proj.ShowContextIndicator
+		}
+		engine.SetShowContextIndicator(showCtx)
 		engine.SetAttachmentSendEnabled(cfg.AttachmentSend != "off")
 		engine.SetBaseWorkDir(workDir)
 		engine.SetProjectStateStore(projectState)
@@ -318,6 +335,19 @@ func main() {
 			engine.SetDefaultQuiet(*proj.Quiet)
 		} else if cfg.Quiet != nil {
 			engine.SetDefaultQuiet(*cfg.Quiet)
+		}
+
+		// Wire auto-compress settings
+		if proj.AutoCompress.Enabled != nil && *proj.AutoCompress.Enabled {
+			minGap := 30 * time.Minute
+			if proj.AutoCompress.MinGapMins != nil {
+				minGap = time.Duration(*proj.AutoCompress.MinGapMins) * time.Minute
+			}
+			maxTokens := derefInt(proj.AutoCompress.MaxTokens)
+			if maxTokens <= 0 {
+				maxTokens = 12000
+			}
+			engine.SetAutoCompressConfig(true, maxTokens, minGap)
 		}
 
 		// Wire sender injection
@@ -467,6 +497,12 @@ func main() {
 		})
 		engine.SetProviderRemoveSaveFunc(func(name string) error {
 			return config.RemoveProviderFromConfig(projName, name)
+		})
+		engine.SetProviderModelSaveFunc(func(providerName, model string) error {
+			return config.SaveProviderModel(projName, providerName, model)
+		})
+		engine.SetModelSaveFunc(func(model string) error {
+			return config.SaveAgentModel(projName, model)
 		})
 
 		// Wire config reload
@@ -801,7 +837,7 @@ func bootstrapConfig(path string) error {
 	}
 
 	const tmpl = `# cc-connect configuration
-# Docs: https://github.com/AtticusZeller/cc-connect
+# Docs: https://github.com/chenhg5/cc-connect
 
 [log]
 level = "info"
@@ -810,7 +846,7 @@ level = "info"
 name = "my-project"
 
 [projects.agent]
-type = "claudecode"   # "claudecode", "gemini"
+type = "claudecode"   # "claudecode", "codex", "cursor", "gemini", "qoder", "opencode", or "iflow"
 
 [projects.agent.options]
 work_dir = "/path/to/your/project"
@@ -819,12 +855,16 @@ mode = "default"
 
 # --- Choose at least one platform below ---
 
+# Feishu / Lark (WebSocket, no public IP needed)
 [[projects.platforms]]
-type = "telegram"
+type = "feishu"
 
 [projects.platforms.options]
-token = "your-telegram-bot-token"
-allowed_users = ["your_telegram_username"]
+app_id = "your-feishu-app-id"
+app_secret = "your-feishu-app-secret"
+
+# For more platforms (DingTalk, Telegram, Slack, Discord, LINE, WeChat Work)
+# see: https://github.com/chenhg5/cc-connect/blob/main/config.example.toml
 `
 	return os.WriteFile(path, []byte(tmpl), 0o644)
 }
@@ -846,11 +886,11 @@ func printUsage() {
  \___\__|      \___\___/|_| |_|_| |_|\___|\___|\__|  %s%s
 
   Bridge your messaging platforms to local AI coding agents.
-  Supports: Claude Code, Gemini CLI
-  Platforms: Telegram
+  Supports: Claude Code, Codex, Cursor, Gemini CLI, Qoder CLI, OpenCode
+  Platforms: Feishu, Telegram, Slack, DingTalk, Discord, LINE, WeChat Work, Weixin, QQ, QQ Bot
 
-  GitHub:  https://github.com/AtticusZeller/cc-connect
-  Docs:    https://github.com/AtticusZeller/cc-connect/blob/main/INSTALL.md
+  GitHub:  https://github.com/chenhg5/cc-connect
+  Docs:    https://github.com/chenhg5/cc-connect/blob/main/INSTALL.md
 
 Usage:
   cc-connect [flags]
@@ -892,6 +932,16 @@ Commands:
     remove           Remove a provider (--project, --name)
     import           Import providers from cc-switch
 
+  feishu             Setup Feishu/Lark bot credentials
+    setup            Smart setup (QR create or bind when --app is provided)
+    new              Force QR onboarding to create a new bot
+    bind             Bind existing app_id/app_secret
+
+  weixin             Setup Weixin personal (ilink) via QR or token
+    setup            QR login, or bind when --token is provided
+    new              Force QR login
+    bind             Bind existing ilink bot token
+
   update             Check for updates and upgrade the binary (--pre for beta)
   check-update       Check if a newer version is available
   config-example     Print a complete annotated config.toml example
@@ -903,6 +953,8 @@ Examples:
   cc-connect daemon logs -f           Follow daemon logs
   cc-connect send -m "hello"          Send a message to the active session
   cc-connect cron list                List all scheduled tasks
+  cc-connect feishu setup             Setup Feishu/Lark bot credentials
+  cc-connect weixin setup             Setup Weixin (ilink) with QR or --token
   cc-connect update                   Update to the latest version
   cc-connect config-example           Print full config.toml example
   cc-connect config-example > c.toml  Save example config to a file
@@ -971,6 +1023,27 @@ func reloadConfig(configPath, projName string, engine *core.Engine) (*core.Confi
 	} else {
 		engine.SetDefaultQuiet(false)
 	}
+
+	// Reload auto-compress settings
+	if proj.AutoCompress.Enabled != nil && *proj.AutoCompress.Enabled {
+		minGap := 30 * time.Minute
+		if proj.AutoCompress.MinGapMins != nil {
+			minGap = time.Duration(*proj.AutoCompress.MinGapMins) * time.Minute
+		}
+		maxTokens := derefInt(proj.AutoCompress.MaxTokens)
+		if maxTokens <= 0 {
+			maxTokens = 12000
+		}
+		engine.SetAutoCompressConfig(true, maxTokens, minGap)
+	} else {
+		engine.SetAutoCompressConfig(false, 0, 0)
+	}
+
+	showCtx := true
+	if proj.ShowContextIndicator != nil {
+		showCtx = *proj.ShowContextIndicator
+	}
+	engine.SetShowContextIndicator(showCtx)
 
 	// Reload sender injection
 	engine.SetInjectSender(proj.InjectSender != nil && *proj.InjectSender)
@@ -1108,4 +1181,11 @@ func buildHeartbeatConfig(hc config.HeartbeatConfig) core.HeartbeatConfig {
 		cfg.TimeoutMins = *hc.TimeoutMins
 	}
 	return cfg
+}
+
+func derefInt(v *int) int {
+	if v == nil {
+		return 0
+	}
+	return *v
 }
