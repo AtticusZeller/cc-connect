@@ -20,7 +20,47 @@ PLATFORMS := \
   windows/amd64 \
   windows/arm64
 
-.PHONY: build run clean test lint release release-all
+# ---------------------------------------------------------------------------
+# Selective compilation via build tags.
+#
+# By default all agents and platforms are included. To build with only
+# specific ones, set AGENTS and/or PLATFORMS_INCLUDE:
+#
+#   make build AGENTS=claudecode PLATFORMS_INCLUDE=feishu,telegram
+#
+# You can also exclude specific ones:
+#
+#   make build EXCLUDE=discord,dingtalk,qq,qqbot,line
+# ---------------------------------------------------------------------------
+
+ALL_AGENTS    := claudecode codex cursor gemini iflow opencode pi qoder
+ALL_PLATFORMS := feishu telegram discord slack dingtalk wecom qq qqbot line
+
+COMMA := ,
+
+# Compute exclusion tags from AGENTS / PLATFORMS_INCLUDE / EXCLUDE variables
+_EXCLUDE_TAGS :=
+
+ifdef AGENTS
+  _WANTED_AGENTS := $(subst $(COMMA), ,$(AGENTS))
+  _EXCLUDE_AGENTS := $(filter-out $(_WANTED_AGENTS),$(ALL_AGENTS))
+  _EXCLUDE_TAGS += $(addprefix no_,$(_EXCLUDE_AGENTS))
+endif
+
+ifdef PLATFORMS_INCLUDE
+  _WANTED_PLATFORMS := $(subst $(COMMA), ,$(PLATFORMS_INCLUDE))
+  _EXCLUDE_PLATFORMS := $(filter-out $(_WANTED_PLATFORMS),$(ALL_PLATFORMS))
+  _EXCLUDE_TAGS += $(addprefix no_,$(_EXCLUDE_PLATFORMS))
+endif
+
+ifdef EXCLUDE
+  _EXCLUDE_TAGS += $(addprefix no_,$(subst $(COMMA), ,$(EXCLUDE)))
+endif
+
+_BUILD_TAGS := $(strip $(_EXCLUDE_TAGS))
+_TAGS_FLAG  := $(if $(_BUILD_TAGS),-tags '$(_BUILD_TAGS)',)
+
+.PHONY: build run clean test test-fast test-full test-smoke test-e2e test-release pre-test lint release release-all
 
 build:
 	go build -ldflags "$(LDFLAGS)" -o $(APP) $(CMD)
@@ -32,6 +72,49 @@ clean:
 	rm -f $(APP)
 	rm -rf $(DIST)
 
+# ---------------------------------------------------------------------------
+# Testing targets.
+#
+# test-fast:  Unit tests + smoke tests (< 2 min). Runs on every push.
+# test-full:   Full test suite including regression (< 10 min). PR requirement.
+# test-smoke:  Smoke tests only (< 1 min). Quick sanity check.
+# test-e2e:    E2E and regression tests only.
+# test-release: Full + performance benchmarks. Before release.
+# pre-test:    Prerequisites (build + vet) before running tests.
+# ---------------------------------------------------------------------------
+
+pre-test:
+	go build ./...
+	go vet ./...
+
+# Fast test: unit tests + smoke tests
+test-fast: pre-test
+	go test -parallel=4 -race ./...
+	go test -parallel=4 -tags=smoke ./tests/e2e/...
+
+# Full test: unit + smoke + regression (PR requirement)
+test-full: pre-test
+	go test -parallel=4 -race ./...
+	go test -parallel=4 -tags=smoke ./tests/e2e/...
+	go test -parallel=2 -tags=regression ./tests/e2e/...
+
+# Smoke tests only
+test-smoke: pre-test
+	go test -v -tags=smoke ./tests/e2e/...
+
+# E2E/regression tests only
+test-e2e: pre-test
+	go test -v -tags=regression ./tests/e2e/...
+
+# Release test: full + performance benchmarks
+test-release: pre-test
+	go test -parallel=4 -race ./...
+	go test -parallel=4 -tags=smoke ./tests/e2e/...
+	go test -parallel=2 -tags=regression ./tests/e2e/...
+	@echo "Consider running: go test -bench=. -benchmem ./..."
+	@echo "Performance baselines should be reviewed before proceeding."
+
+# Legacy: runs unit tests only
 test:
 	go test -v ./...
 
