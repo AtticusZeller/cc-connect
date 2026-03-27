@@ -16,7 +16,6 @@ import (
 	"strconv"
 	"strings"
 	"sync"
-	"sync/atomic"
 	"time"
 	"unicode/utf8"
 )
@@ -207,7 +206,6 @@ type Engine struct {
 	quietMu sync.RWMutex
 	quiet   bool // when true, suppress thinking and tool progress messages globally
 
-	hasConnectedOnce    atomic.Bool // first connection uses --continue to bridge CLI usage
 	platformLifecycleMu sync.Mutex
 	platformReady       map[Platform]bool
 	stopping            bool
@@ -1059,6 +1057,12 @@ func (e *Engine) OnPlatformUnavailable(p Platform, err error) {
 	slog.Warn("platform unavailable", "project", e.name, "platform", p.Name(), "error", err)
 }
 
+// ReceiveMessage delivers a message from a platform to the engine.
+// This is a public wrapper for use in integration tests and external callers.
+func (e *Engine) ReceiveMessage(p Platform, msg *Message) {
+	e.handleMessage(p, msg)
+}
+
 func (e *Engine) onPlatformReady(p Platform) {
 	if !e.markPlatformReady(p) {
 		return
@@ -1685,16 +1689,7 @@ func (e *Engine) processInteractiveMessageWith(p Platform, msg *Message, session
 	if agent != e.agent {
 		agentOverride = agent
 	}
-	// Per-workspace connectedOnce flag so that idle-reaped workspaces
-	// re-use --continue on their first reconnection.
-	var wsConnectedOnce *atomic.Bool
-	if workspaceDir != "" {
-		if ws := e.workspacePool.Get(workspaceDir); ws != nil {
-			wsConnectedOnce = &ws.hasConnectedOnce
-		}
-	}
-	consumeBridge := messageConsumesFirstContinueBridge(msg)
-	state := e.getOrCreateInteractiveStateWith(interactiveKey, p, msg.ReplyCtx, session, sessions, agentOverride, ccSessionKey, consumeBridge, wsConnectedOnce)
+	state := e.getOrCreateInteractiveStateWith(interactiveKey, p, msg.ReplyCtx, session, sessions, agentOverride, ccSessionKey)
 
 	// Set workspaceDir on the state for idle reaper identification
 	if workspaceDir != "" {
@@ -1816,30 +1811,10 @@ func (e *Engine) getOrCreateWorkspaceAgent(workspace string) (Agent, *SessionMan
 	return agent, sessions, nil
 }
 
-// messageConsumesFirstContinueBridge reports whether this message may trigger the
-// one-time --continue bridge to the latest CLI session. Synthetic injectors (cron,
-// heartbeat) must not flip hasConnectedOnce so a real user's first message still
-// receives the bridge if nothing else has connected yet.
-func messageConsumesFirstContinueBridge(msg *Message) bool {
-	if msg == nil {
-		return true
-	}
-	switch strings.ToLower(strings.TrimSpace(msg.UserID)) {
-	case "cron", "heartbeat":
-		return false
-	default:
-		return true
-	}
-}
-
 // getOrCreateInteractiveStateWith accepts an optional agent override for multi-workspace mode.
 // When agentOverride is non-nil it is used instead of e.agent to start the session.
 // ccSessionKey, when non-empty, is used for CC_SESSION_KEY env injection; otherwise sessionKey is used.
-// consumeFirstUserContinueBridge controls whether this start may use the global
-// one-time ContinueSession bridge (see messageConsumesFirstContinueBridge).
-// connectedOnce, when non-nil, is used instead of the engine-level hasConnectedOnce flag
-// (for per-workspace tracking after idle reap).
-func (e *Engine) getOrCreateInteractiveStateWith(sessionKey string, p Platform, replyCtx any, session *Session, sessions *SessionManager, agentOverride Agent, ccSessionKey string, consumeFirstUserContinueBridge bool, connectedOnce *atomic.Bool) *interactiveState {
+func (e *Engine) getOrCreateInteractiveStateWith(sessionKey string, p Platform, replyCtx any, session *Session, sessions *SessionManager, agentOverride Agent, ccSessionKey string) *interactiveState {
 	e.interactiveMu.Lock()
 	defer e.interactiveMu.Unlock()
 
@@ -1851,11 +1826,16 @@ func (e *Engine) getOrCreateInteractiveStateWith(sessionKey string, p Platform, 
 		// wrong conversation context.
 		wantID := session.GetAgentSessionID()
 		currentID := state.agentSession.CurrentSessionID()
-		if wantID == "" || currentID == "" || wantID == currentID {
+		// Reuse only when the live process matches what the Session expects:
+		// - IDs match (same Claude session), or
+		// - the process has not reported an ID yet (startup; empty want is OK).
+		// If wantID is empty (/new, cleared session) but the process already has
+		// a concrete ID, reusing would keep --resume context — recycle (#238).
+		needRecycle := currentID != "" && (wantID == "" || wantID != currentID)
+		if !needRecycle {
 			return state
 		}
-		// Active session has changed — tear down the stale agent so we can
-		// start a new one that matches the current session below.
+		// Tear down the stale agent so we start one that matches the Session below.
 		slog.Info("interactive session mismatch, recycling",
 			"session_key", sessionKey,
 			"want_agent_session", wantID,
@@ -1921,18 +1901,10 @@ func (e *Engine) getOrCreateInteractiveStateWith(sessionKey string, p Platform, 
 		return state
 	}
 
-	// On first real-user connection after engine startup (or workspace re-creation
-	// after idle reap), use --continue to pick up the most recent CLI session.
-	// Subsequent connections respect the stored session ID (or "" for fresh).
+	// Resume only when we have a concrete saved agent session ID. If the session
+	// is unbound, force a fresh start instead of attaching to whichever CLI
+	// conversation happens to be "latest" in this workspace.
 	startSessionID := session.GetAgentSessionID()
-	once := &e.hasConnectedOnce
-	if connectedOnce != nil {
-		once = connectedOnce
-	}
-	if consumeFirstUserContinueBridge && !once.Swap(true) {
-		startSessionID = ContinueSession
-	}
-
 	isResume := startSessionID != ""
 	startAt := time.Now()
 	agentSession, err := agent.StartSession(e.ctx, startSessionID)
@@ -3169,17 +3141,23 @@ func (e *Engine) cmdNew(p Platform, msg *Message, args []string) {
 	slog.Info("cmdNew: cleaning up old session", "session_key", msg.SessionKey)
 	e.cleanupInteractiveState(interactiveKey)
 	slog.Info("cmdNew: cleanup done, creating new session", "session_key", msg.SessionKey)
+
+	// Clear old session's agent session ID so it cannot be resumed
+	old := sessions.GetOrCreateActive(msg.SessionKey)
+	old.SetAgentSessionID("", "")
+	old.ClearHistory()
+	sessions.Save()
+
 	name := ""
 	if len(args) > 0 {
 		name = strings.Join(args, " ")
 	}
-	s := sessions.NewSession(msg.SessionKey, name)
+	sessions.NewSession(msg.SessionKey, name)
 	if name != "" {
 		e.reply(p, msg.ReplyCtx, fmt.Sprintf(e.i18n.T(MsgNewSessionCreatedName), name))
 	} else {
 		e.reply(p, msg.ReplyCtx, e.i18n.T(MsgNewSessionCreated))
 	}
-	_ = s
 }
 
 const listPageSize = 20
@@ -4204,8 +4182,9 @@ func (e *Engine) renderStatusCard(sessionKey string, userID string) *Card {
 	globalQuiet := e.quiet
 	e.quietMu.RUnlock()
 
+	iKey := e.interactiveKeyForSessionKey(sessionKey)
 	e.interactiveMu.Lock()
-	state, hasState := e.interactiveStates[sessionKey]
+	state, hasState := e.interactiveStates[iKey]
 	e.interactiveMu.Unlock()
 
 	sessionQuiet := false
@@ -5608,8 +5587,23 @@ func (e *Engine) SendToSessionWithAttachments(sessionKey, message string, images
 	var state *interactiveState
 	if sessionKey != "" {
 		state = e.interactiveStates[sessionKey]
+		if state == nil && e.multiWorkspace {
+			if iKey := e.interactiveKeyForSessionKey(sessionKey); iKey != sessionKey {
+				state = e.interactiveStates[iKey]
+			}
+		}
+	} else if len(e.interactiveStates) == 1 {
+		// Single session: use it when no sessionKey is provided (backward compatible)
+		for _, s := range e.interactiveStates {
+			state = s
+			break
+		}
+	} else if len(e.interactiveStates) > 1 && (len(images) > 0 || len(files) > 0) {
+		// Multiple sessions with attachments but no explicit sessionKey: ambiguous
+		e.interactiveMu.Unlock()
+		return fmt.Errorf("multiple active sessions; must specify --session to send attachments")
 	} else {
-		// Pick the first active session
+		// Multiple sessions but text-only: pick the first (legacy behavior)
 		for _, s := range e.interactiveStates {
 			state = s
 			break
