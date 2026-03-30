@@ -228,28 +228,13 @@ func (gs *geminiSession) readLoop(ctx context.Context, cmd *exec.Cmd, stdout io.
 
 		slog.Debug("geminiSession: raw", "line", truncate(line, 500))
 
-		remaining := line
-		for {
-			start := strings.Index(remaining, "{")
-			if start == -1 {
-				break
-			}
-			remaining = remaining[start:]
-
-			var raw map[string]any
-			dec := json.NewDecoder(strings.NewReader(remaining))
-			if err := dec.Decode(&raw); err != nil {
-				// Not a valid JSON object starting here, skip and try next {
-				remaining = remaining[1:]
-				continue
-			}
-
-			gs.handleEvent(raw)
-
-			// Advance by number of bytes consumed by the decoder
-			offset := dec.InputOffset()
-			remaining = remaining[offset:]
+		var raw map[string]any
+		if err := json.Unmarshal([]byte(line), &raw); err != nil {
+			slog.Debug("geminiSession: non-JSON line", "line", line)
+			continue
 		}
+
+		gs.handleEvent(raw)
 	}
 
 	if err := scanner.Err(); err != nil {
@@ -417,14 +402,20 @@ func (gs *geminiSession) handleResult(raw map[string]any) {
 			return
 		}
 	} else {
-		// Log stats but don't put them in Content (leaks to user)
-		if statsObj, ok := raw["stats"].(map[string]any); ok {
+		// Extract stats for successful sessions
+		var content string
+		statsObj, hasStats := raw["stats"].(map[string]any)
+		if hasStats {
+			// Format stats as compact JSON for Event.Content
 			if statsJSON, err := json.Marshal(statsObj); err == nil {
+				content = fmt.Sprintf("Stats: %s", string(statsJSON))
 				slog.Debug("geminiSession: result stats", "stats", string(statsJSON))
+			} else {
+				slog.Warn("geminiSession: failed to marshal stats", "error", err)
 			}
 		}
 
-		evt := core.Event{Type: core.EventResult, Content: "", SessionID: sid, Done: true}
+		evt := core.Event{Type: core.EventResult, Content: content, SessionID: sid, Done: true}
 		select {
 		case gs.events <- evt:
 		case <-gs.ctx.Done():
