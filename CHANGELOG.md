@@ -1,5 +1,92 @@
 # Changelog
 
+## v1.2.2-beta.4 (2026-03-22)
+
+Beta release with Weixin (ilink) personal chat support, session/continue improvements, and platform fixes.
+
+### New Features
+- **Weixin Personal (ilink)**: New platform with long-poll `getUpdates` / `sendMessage`, QR `weixin setup`, CDN decrypt for inbound media and `ImageSender`/`FileSender` outbound (#257)
+- **Telegram**: Voice/audio reply support (#225) and async startup recovery
+- **Discord**: `@everyone` / `@here` broadcast support (#132)
+- **Cron**: Optional new session per run and per-job timeout (#236)
+- **Claude Code**: `disallowed_tools` configuration option (#232)
+- **Auto-Compress**: Compress context when estimated tokens exceed threshold (#231)
+- **Continue / Sessions**: Fork session on `--continue` to avoid context contamination (#244); replace persisted `ContinueSession` sentinel with real agent session id; reserve CLI `--continue` bridge for real user traffic
+- **Core**: `/dir` directory history; `/model` switching aligned with provider flow (#246)
+- **Providers**: MiniMax M2.7 high-speed model added to example configs (#217)
+
+### Bug Fixes
+- **Weixin**: Harden send path (empty body skip, response body cap, dedup keys, multi-voice segments); treat `sendMessage` JSON `ret != 0` as failure so quota/API errors surface correctly
+- **Feishu**: Always reply to the original message; dispatch message handling asynchronously (#57)
+- **Codex**: Mode switch and `--json` flag position fixes (#240, #239)
+- **Multi-Workspace**: Workspace command prefix missing leading slash (#135)
+- **Non-Claude Agents**: Ignore `ContinueSession` sentinel where inappropriate (#244 follow-up)
+- **npm / Update**: Version sync after update; pre-release version comparison normalization
+
+### Improvements
+- **Tests**: Expanded coverage across `config`, `core`, agents, and platforms
+- **Logging / Errors**: Additional error logging in several code paths
+
+### Contributors
+
+Special thanks to all contributors who made this release possible:
+
+- **cg33** — Weixin ilink platform, setup CLI, and CDN media (#257)
+- **Shawn** — Feishu async dispatch and reply-to-original fixes (#57)
+- **quabug** — Discord broadcast and non-Claude ContinueSession handling (#132, #244)
+- **huluma1314** — Auto-compress when token threshold exceeded (#231)
+- **Leigh Stillard** — Fork session on `--continue` (#244)
+- **Deeka Wong** — Telegram audio replies and core `/model` provider flow (#225, #246)
+- **q107580018** — Telegram async startup recovery
+- **just4zeroq** — Codex mode and JSON flag fixes (#240)
+- **术士木星** — Cron session-per-run and job timeout (#236)
+- **hushicai** — Claude `disallowed_tools` (#232)
+- **Octopus** — MiniMax M2.7 high-speed in examples (#217)
+- **alinnb** — `/dir` directory history
+- **Claude** — Continue-session bridge fixes, auto-compress/cron edge cases, Weixin send hardening and API error handling, and broad test improvements
+
+## v1.2.2-beta.3 (2026-03-19)
+
+Beta release with major multi-user mode, improved workspace stability, and platform enhancements.
+
+### New Features
+- **Multi-User Mode**: Per-user rate limits, role-based ACL (allow_from/admin_from), and audit logging
+- **ImageSender**: Unified image sending support for 6 platforms (Feishu, Telegram, Discord, Slack, DingTalk, QQ)
+- **MiniMax M2.7**: Upgraded default model from M2.5 to M2.7 for improved reasoning
+- **/whoami Command**: Display user ID for allow_from/admin_from configuration
+- **/btw Command**: Inject messages into busy sessions without interrupting
+- **/dir Command**: Dynamic runtime work directory switching
+- **Cron Muting**: Mute/unmute cron jobs with platform wrapper and UI integration
+- **Interrupt Support**: Send interrupt signal to agent sessions (Ctrl+C equivalent)
+- **CORS Support**: Cross-origin requests enabled for Bridge API
+- **Message Queuing**: Queue messages when agent is busy instead of discarding
+- **QQ Bot Markdown**: Full Markdown message support for QQ Bot
+
+### Bug Fixes
+- **Workspace Session Persistence**: Sessions now persist to disk in multi-workspace mode
+- **Race Conditions**: Multiple data race fixes (adminFrom, degraded field, userRolesMu)
+- **Memory Leaks**: Fixed pendingAcks leak on WeCom WebSocket disconnect, goroutine leaks
+- **i18n**: Complete translation coverage for error messages
+- **Relay Timeout**: Return partial text after timeout instead of error
+- **QQ Bot Reconnect**: Handle nil wsConn on failed reconnect
+
+### Improvements
+- **Message Queue**: Extracted message queue handling into dedicated method
+- **Cron UX**: Improved human-readable cron expressions
+- **Slack**: Typing indicator, file download error handling, auth diagnostics
+- **Provider Config**: `models` list for per-provider model selection via alias
+- **Build**: Test infrastructure with P0/P1分层测试targets
+
+### Contributors
+
+Special thanks to all contributors who made this release possible:
+
+- **sean2077** - Multi-user mode, ACL, and audit logging
+- **0xsegfaulted** - Multi-workspace fixes and interrupt support
+- **octo-patch** - MiniMax M2.7 upgrade
+- **windli2018** - Bridge CORS support
+- **jenvan** - CORS fixes
+
 ## v1.2.2-beta.2 (2026-03-16)
 
 Beta release with significant improvements to agent stability, platform onboarding, and user experience.
@@ -262,6 +349,7 @@ This is the first stable release of cc-connect 1.2.0, consolidating all beta cha
 
 ### New Features
 - **`/compress` Command**: Compress/compact conversation context by forwarding native commands to agents (Claude Code `/compact`, Codex `/compact`, Gemini `/compress`); keeps long sessions manageable
+- **Auto-Compress**: Added optional automatic context compression when estimated token usage exceeds a configurable threshold (`[projects.auto_compress]`).
 - **Telegram Inline Buttons**: Permission prompts on Telegram now use clickable inline keyboard buttons (Allow / Deny / Allow All) instead of requiring text replies
 - **`/model` Command**: View and switch AI models at runtime; supports numbered quick-select and custom model names. Fetches available models from provider API in real-time (Anthropic, OpenAI, Google), with built-in fallback list
 - **`/memory` Command**: View and edit agent memory files (CLAUDE.md, AGENTS.md, GEMINI.md) directly from chat; supports both project-level and global-level (`/memory global`)

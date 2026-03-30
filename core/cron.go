@@ -10,6 +10,7 @@ import (
 	"os"
 	"reflect"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -24,12 +25,14 @@ type CronJob struct {
 	SessionKey  string    `json:"session_key"`
 	CronExpr    string    `json:"cron_expr"`
 	Prompt      string    `json:"prompt"`
-	Exec        string    `json:"exec,omitempty"`    // shell command; mutually exclusive with Prompt
+	Exec        string    `json:"exec,omitempty"`     // shell command; mutually exclusive with Prompt
 	WorkDir     string    `json:"work_dir,omitempty"` // working directory for exec; empty = agent work_dir
 	Description string    `json:"description"`
 	Enabled     bool      `json:"enabled"`
-	Silent      *bool     `json:"silent,omitempty"` // suppress start notification; nil = use global default
-	Mute        bool      `json:"mute,omitempty"`   // suppress ALL messages (start + result); job runs silently
+	Silent      *bool     `json:"silent,omitempty"`       // suppress start notification; nil = use global default
+	Mute        bool      `json:"mute,omitempty"`         // suppress ALL messages (start + result); job runs silently
+	SessionMode string    `json:"session_mode,omitempty"` // "" or "reuse" = share active session; "new_per_run" = fresh session each run
+	TimeoutMins *int      `json:"timeout_mins,omitempty"` // nil = default 30m wait; 0 = no limit; >0 = minutes
 	CreatedAt   time.Time `json:"created_at"`
 	LastRun     time.Time `json:"last_run,omitempty"`
 	LastError   string    `json:"last_error,omitempty"`
@@ -38,6 +41,53 @@ type CronJob struct {
 // IsShellJob returns true if the job runs a shell command directly.
 func (j *CronJob) IsShellJob() bool {
 	return j.Exec != ""
+}
+
+const defaultCronJobTimeout = 30 * time.Minute
+
+// ExecutionTimeout returns how long the scheduler waits for the job goroutine to finish.
+// nil TimeoutMins uses 30 minutes. *TimeoutMins == 0 means wait without a time limit.
+// *TimeoutMins > 0 means that many minutes.
+func (j *CronJob) ExecutionTimeout() time.Duration {
+	if j.TimeoutMins == nil {
+		return defaultCronJobTimeout
+	}
+	if *j.TimeoutMins <= 0 {
+		return 0
+	}
+	return time.Duration(*j.TimeoutMins) * time.Minute
+}
+
+// UsesNewSessionPerRun reports whether each cron run should use a new engine session
+// instead of reusing the active session for the session_key.
+func (j *CronJob) UsesNewSessionPerRun() bool {
+	return NormalizeCronSessionMode(j.SessionMode) == "new_per_run"
+}
+
+// NormalizeCronSessionMode maps CLI/API aliases to canonical values ("", "new_per_run").
+// Returns the original string if unrecognized (caller should validate).
+func NormalizeCronSessionMode(s string) string {
+	s = strings.TrimSpace(s)
+	low := strings.ToLower(s)
+	switch low {
+	case "", "reuse":
+		return ""
+	case "new_per_run", "new-per-run":
+		return "new_per_run"
+	default:
+		return s
+	}
+}
+
+func validateCronJob(j *CronJob) error {
+	mode := NormalizeCronSessionMode(j.SessionMode)
+	if mode != "" && mode != "new_per_run" {
+		return fmt.Errorf("invalid session_mode %q (want reuse, new_per_run, or new-per-run)", j.SessionMode)
+	}
+	if j.TimeoutMins != nil && *j.TimeoutMins < 0 {
+		return fmt.Errorf("timeout_mins must be >= 0")
+	}
+	return nil
 }
 
 // CronStore persists cron jobs to a JSON file.
@@ -89,7 +139,9 @@ func (s *CronStore) Remove(id string) bool {
 	for i, j := range s.jobs {
 		if j.ID == id {
 			s.jobs = append(s.jobs[:i], s.jobs[i+1:]...)
-			s.save()
+			if err := s.save(); err != nil {
+				slog.Warn("cron: failed to save after remove", "error", err)
+			}
 			return true
 		}
 	}
@@ -102,7 +154,9 @@ func (s *CronStore) SetEnabled(id string, enabled bool) bool {
 	for _, j := range s.jobs {
 		if j.ID == id {
 			j.Enabled = enabled
-			s.save()
+			if err := s.save(); err != nil {
+				slog.Warn("cron: failed to save after set enabled", "error", err)
+			}
 			return true
 		}
 	}
@@ -115,7 +169,9 @@ func (s *CronStore) SetMute(id string, mute bool) bool {
 	for _, j := range s.jobs {
 		if j.ID == id {
 			j.Mute = mute
-			s.save()
+			if err := s.save(); err != nil {
+				slog.Warn("cron: save after mute toggle", "error", err)
+			}
 			return true
 		}
 	}
@@ -128,7 +184,9 @@ func (s *CronStore) ToggleMute(id string) (newState bool, ok bool) {
 	for _, j := range s.jobs {
 		if j.ID == id {
 			j.Mute = !j.Mute
-			s.save()
+			if err := s.save(); err != nil {
+				slog.Warn("cron: failed to save after toggle mute", "error", err)
+			}
 			return j.Mute, true
 		}
 	}
@@ -146,7 +204,9 @@ func (s *CronStore) MarkRun(id string, err error) {
 			} else {
 				j.LastError = ""
 			}
-			s.save()
+			if saveErr := s.save(); saveErr != nil {
+				slog.Warn("cron: failed to save after mark run", "error", saveErr)
+			}
 			return
 		}
 	}
@@ -377,6 +437,10 @@ func (cs *CronScheduler) Stop() {
 }
 
 func (cs *CronScheduler) AddJob(job *CronJob) error {
+	if err := validateCronJob(job); err != nil {
+		return err
+	}
+	job.SessionMode = NormalizeCronSessionMode(job.SessionMode)
 	if _, err := cron.ParseStandard(job.CronExpr); err != nil {
 		return fmt.Errorf("invalid cron expression %q: %w", job.CronExpr, err)
 	}
@@ -513,8 +577,6 @@ func (cs *CronScheduler) scheduleJob(job *CronJob) error {
 	return nil
 }
 
-const cronJobTimeout = 30 * time.Minute
-
 func (cs *CronScheduler) executeJob(jobID string) {
 	job := cs.store.Get(jobID)
 	if job == nil || !job.Enabled {
@@ -539,10 +601,15 @@ func (cs *CronScheduler) executeJob(jobID string) {
 	}()
 
 	var err error
-	select {
-	case err = <-done:
-	case <-time.After(cronJobTimeout):
-		err = fmt.Errorf("job timed out after %v", cronJobTimeout)
+	timeout := job.ExecutionTimeout()
+	if timeout > 0 {
+		select {
+		case err = <-done:
+		case <-time.After(timeout):
+			err = fmt.Errorf("job timed out after %v", timeout)
+		}
+	} else {
+		err = <-done
 	}
 
 	cs.store.MarkRun(jobID, err)
@@ -565,7 +632,9 @@ func (m *mutePlatform) Send(_ context.Context, _ any, _ string) error  { return 
 
 func GenerateCronID() string {
 	b := make([]byte, 4)
-	rand.Read(b)
+	if _, err := rand.Read(b); err != nil {
+		panic(fmt.Errorf("generate cron id: %w", err))
+	}
 	return hex.EncodeToString(b)
 }
 
@@ -674,15 +743,11 @@ func CronExprToHuman(expr string, lang Language) string {
 
 	// Weekday
 	if dow != "*" {
-		if d, err := fmt.Sscanf(dow, "%d", new(int)); err == nil && d == 1 {
-			var n int
-			fmt.Sscanf(dow, "%d", &n)
-			if n >= 0 && n <= 6 {
-				if cjk {
-					parts = append(parts, weekdays[n])
-				} else {
-					parts = append(parts, "Every "+weekdays[n])
-				}
+		if n, err := strconv.Atoi(dow); err == nil && n >= 0 && n <= 6 {
+			if cjk {
+				parts = append(parts, weekdays[n])
+			} else {
+				parts = append(parts, "Every "+weekdays[n])
 			}
 		} else {
 			parts = append(parts, "weekday("+dow+")")
@@ -691,12 +756,8 @@ func CronExprToHuman(expr string, lang Language) string {
 
 	// Month
 	if month != "*" {
-		if m, err := fmt.Sscanf(month, "%d", new(int)); err == nil && m == 1 {
-			var n int
-			fmt.Sscanf(month, "%d", &n)
-			if n >= 1 && n <= 12 {
-				parts = append(parts, months[n])
-			}
+		if n, err := strconv.Atoi(month); err == nil && n >= 1 && n <= 12 {
+			parts = append(parts, months[n])
 		}
 	}
 

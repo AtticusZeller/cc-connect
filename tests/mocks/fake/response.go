@@ -2,9 +2,11 @@ package fake
 
 import (
 	"context"
+	"fmt"
+	"sync"
 	"time"
 
-	"github.com/chenhg5/cc-connect/core"
+	"github.com/AtticusZeller/cc-connect/core"
 )
 
 // TestUsageReport creates a test usage report.
@@ -71,6 +73,7 @@ func TestCardWithButtons(buttons ...core.CardButton) *core.Card {
 
 // TestMessageHandler is a simple message handler for testing.
 type TestMessageHandler struct {
+	mu       sync.Mutex
 	Messages []*core.Message
 }
 
@@ -81,14 +84,22 @@ func NewTestMessageHandler() *TestMessageHandler {
 }
 
 func (h *TestMessageHandler) Handle(p core.Platform, msg *core.Message) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
 	h.Messages = append(h.Messages, msg)
 }
 
 func (h *TestMessageHandler) GetMessages() []*core.Message {
-	return h.Messages
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	cp := make([]*core.Message, len(h.Messages))
+	copy(cp, h.Messages)
+	return cp
 }
 
 func (h *TestMessageHandler) Clear() {
+	h.mu.Lock()
+	defer h.mu.Unlock()
 	h.Messages = h.Messages[:0]
 }
 
@@ -106,10 +117,7 @@ func NewTestDedupeItem(key string, ttl time.Duration) *TestDedupeItem {
 }
 
 // TestRateLimiterToken creates a test rate limiter token bucket state.
-type TestRateLimiterToken struct {
-	tokens    float64
-	lastCheck time.Time
-}
+type TestRateLimiterToken struct{}
 
 // TestCronJob creates a test cron job.
 func TestCronJob(id, desc, prompt string, cronExpr string) *core.CronJob {
@@ -128,8 +136,8 @@ func TestAgentSessionInfoList(count int) []core.AgentSessionInfo {
 	sessions := make([]core.AgentSessionInfo, count)
 	for i := 0; i < count; i++ {
 		sessions[i] = core.AgentSessionInfo{
-			ID:           "session-" + string(rune('0'+i)),
-			Summary:      "Test session " + string(rune('0'+i)),
+			ID:           fmt.Sprintf("session-%d", i),
+			Summary:      fmt.Sprintf("Test session %d", i),
 			MessageCount: (i + 1) * 10,
 			ModifiedAt:   time.Now().Add(-time.Duration(i) * time.Hour),
 		}

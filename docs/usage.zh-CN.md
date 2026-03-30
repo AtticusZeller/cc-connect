@@ -8,8 +8,12 @@ cc-connect 完整功能使用指南。
 - [权限模式](#权限模式)
 - [API Provider 管理](#api-provider-管理)
 - [模型选择](#模型选择)
+- [工作目录切换（`/dir`、`/cd`）](#工作目录切换dircd)
+- [飞书配置 CLI](#飞书配置-cli)
+- [微信个人号配置 CLI](#微信个人号配置-cli)
 - [Claude Code Router 集成](#claude-code-router-集成)
 - [语音消息（语音转文字）](#语音消息语音转文字)
+- [语音回复（文字转语音）](#语音回复文字转语音)
 - [图片与文件回传](#图片与文件回传)
 - [定时任务 (Cron)](#定时任务-cron)
 - [多机器人中继](#多机器人中继)
@@ -32,8 +36,10 @@ cc-connect 完整功能使用指南。
 | `/history [n]` | 查看最近 n 条消息 |
 | `/usage` | 查看账号/模型限额使用情况 |
 | `/provider [...]` | 管理 API Provider |
-| `/model [alias]` | 列出可用模型或按别名切换 |
+| `/model [switch <alias>]` | 列出可用模型或按别名切换 |
+| `/dir [路径]` | 查看或切换 Agent 工作目录 |
 | `/allow <工具名>` | 预授权工具 |
+| `/reasoning [等级]` | 查看或切换推理强度（Codex）|
 | `/mode [名称]` | 查看或切换权限模式 |
 | `/quiet` | 开关思考/工具进度消息 |
 | `/stop` | 停止当前执行 |
@@ -53,8 +59,27 @@ cc-connect 完整功能使用指南。
 |------|--------|------|
 | 默认 | `default` | 每次工具调用需确认 |
 | 接受编辑 | `acceptEdits` / `edit` | 文件编辑自动通过 |
+| 自动模式 | `auto` | 由 Claude 自动判断何时需要确认 |
 | 计划模式 | `plan` | 只规划不执行 |
 | YOLO | `bypassPermissions` / `yolo` | 全部自动通过 |
+
+### Codex 模式
+
+| 模式 | 配置值 | 行为 |
+|------|--------|------|
+| 建议 | `suggest` | 仅受信命令自动执行 |
+| 自动编辑 | `auto-edit` | 模型自行决定 |
+| 全自动 | `full-auto` | 自动通过 + 沙箱保护 |
+| YOLO | `yolo` | 跳过所有审批 |
+
+### Cursor Agent 模式
+
+| 模式 | 配置值 | 行为 |
+|------|--------|------|
+| 默认 | `default` | 工具调用前询问 |
+| 强制执行 | `force` / `yolo` | 自动批准所有 |
+| 规划模式 | `plan` | 只读分析 |
+| 问答模式 | `ask` | 问答风格，只读 |
 
 ### Gemini CLI 模式
 
@@ -64,6 +89,13 @@ cc-connect 完整功能使用指南。
 | 自动编辑 | `auto_edit` / `edit` | 编辑自动通过 |
 | 全自动 | `yolo` | 自动批准所有 |
 | 规划模式 | `plan` | 只读规划 |
+
+### Qoder CLI / OpenCode / iFlow CLI
+
+| 模式 | 配置值 | 行为 |
+|------|--------|------|
+| 默认 | `default` | 标准权限 |
+| YOLO | `yolo` | 跳过所有检查 |
 
 ### 配置示例
 
@@ -76,7 +108,7 @@ mode = "default"
 运行时切换：
 ```
 /mode          # 查看当前和可用模式
-/mode yolo     # 切换到 YOLO
+/mode yolo     # 切换到 YOLO 模式
 /mode default  # 切回默认
 ```
 
@@ -153,7 +185,10 @@ cc-connect provider import --project my-backend  # 从 cc-switch 导入
 | Agent | api_key → | base_url → |
 |-------|-----------|------------|
 | Claude Code | `ANTHROPIC_API_KEY` | `ANTHROPIC_BASE_URL` |
+| Codex | `OPENAI_API_KEY` | `OPENAI_BASE_URL` |
 | Gemini CLI | `GEMINI_API_KEY` | 使用 `env` 字段 |
+| OpenCode | `ANTHROPIC_API_KEY` | 使用 `env` 字段 |
+| iFlow CLI | `IFLOW_API_KEY` | `IFLOW_BASE_URL` |
 
 ---
 
@@ -169,19 +204,124 @@ name = "openai"
 api_key = "sk-xxx"
 
 [[projects.agent.providers.models]]
+model = "gpt-5.3-codex"
+alias = "codex"
+
+[[projects.agent.providers.models]]
 model = "gpt-5.4"
 alias = "gpt"
+
+[[projects.agent.providers.models]]
+model = "gpt-5.3-codex-spark"
+alias = "spark"
 ```
 
 ### 聊天命令
 
 ```
 /model              列出可用模型（格式：alias - model）
-/model <alias>      按别名切换模型
-/model <name>       按完整名称切换模型
+/model switch <alias>      按别名切换模型
+/model switch <name>       按完整名称切换模型
+/model <alias>             兼容旧写法，仍然可用
 ```
 
 配置了 `models` 时，`/model` 直接显示该列表，不发起 API 请求。未配置时，自动从 Provider API 获取或使用内置备选列表。
+
+---
+
+## 工作目录切换（`/dir`、`/cd`）
+
+可直接在聊天中切换 Agent 下一次会话的工作目录。
+
+### 聊天命令
+
+```
+/dir                    查看当前工作目录和最近历史
+/dir <路径>             切换到指定路径（相对或绝对）
+/dir <序号>             按历史序号切换目录
+/dir -                  返回上一个目录
+/dir help               查看命令用法
+/cd <路径>              `/dir <路径>` 的兼容别名
+```
+
+### 行为说明
+
+- 目录切换会作用于当前项目的下一次会话。
+- 相对路径基于当前 Agent 工作目录解析。
+- 目录历史按项目隔离，可通过序号快速切换。
+- `/cd` 为兼容保留，建议优先使用 `/dir`。
+
+示例：
+
+```text
+/dir ../another-repo
+/dir 2
+/dir -
+```
+
+---
+
+## 飞书配置 CLI
+
+可以直接通过 CLI 完成飞书/Lark 机器人创建或关联，并自动写回 `config.toml`：
+
+```bash
+# 推荐：统一入口
+cc-connect feishu setup --project my-project
+cc-connect feishu setup --project my-project --app cli_xxx:sec_xxx
+
+# 强制模式（一般不需要）
+cc-connect feishu new --project my-project
+cc-connect feishu bind --project my-project --app cli_xxx:sec_xxx
+```
+
+区别说明：
+- `setup`：统一入口。没传凭证时等价 `new`，传了 `--app` 时等价 `bind`。
+- `new`：强制二维码新建，不接受 `--app`。
+- `bind`：强制关联已有机器人，必须提供凭证。
+
+行为说明（通用）：
+- `setup` 默认走二维码新建；传入 `--app` 时自动切换到关联已有机器人。
+- `--project` 不存在会自动创建。
+- 项目存在但没有 `feishu/lark` 平台时会自动补一个平台配置。
+- 命令会回填凭证（`app_id` / `app_secret`）；扫码新建场景下飞书通常会预配权限和事件订阅。
+- 建议在飞书开放平台再核验一次发布状态与可用范围。
+
+---
+
+## 微信个人号配置 CLI
+
+个人微信走 **ilink 机器人网关**（HTTP 长轮询，与 OpenClaw `openclaw-weixin` 同类）。可直接用 CLI 扫码登录或绑定已有 Token，并写回 `config.toml`。
+
+**完整图文流程与配置项说明见：[docs/weixin.md](./weixin.md)。**
+
+```bash
+# 推荐：终端展示二维码 + URL，微信扫码确认后自动写配置
+cc-connect weixin setup --project my-project
+
+# 已有 Bearer Token（例如从 OpenClaw 导出）
+cc-connect weixin bind --project my-project --token '<token>'
+cc-connect weixin setup --project my-project --token '<token>'
+
+# 强制只走扫码（不接受 --token）
+cc-connect weixin new --project my-project
+```
+
+区别说明：
+
+- `setup`：未传 `--token` 时走扫码；传了 `--token` 时等同绑定并可选校验。
+- `new`：强制扫码。
+- `bind`：强制绑定，必须 `--token`。
+
+行为说明：
+
+- `--project` 不存在时会自动创建项目；项目里没有 `weixin` 平台时会自动追加一块 `[[projects.platforms]]`。
+- 扫码成功后会写入 `token`，以及网关返回的 `base_url`（若有）、`ilink_bot_id` → `account_id` 等。
+- 默认 `--set-allow-from-empty=true`：若 `allow_from` 为空，会用扫码用户的 ilink ID 预填，便于收紧权限。
+- 绑定时默认调用 `getUpdates` 校验 Token；可用 `--skip-verify` 跳过。
+- 首次使用后请在微信里 **先发一条消息**，以便缓存 `context_token`，否则可能无法回复。
+
+常用参数：`--api-url`、`--cdn-url`、`--timeout`、`--qr-image`、`--route-tag`、`--bot-type`、`--debug`（详见 `cc-connect weixin help` 或 [weixin.md](./weixin.md)）。
 
 ---
 
@@ -228,7 +368,7 @@ router_api_key = "your-secret-key"
 
 发送语音消息，自动转文字。
 
-**支持平台：** Telegram
+**支持平台：** 飞书、企业微信、Telegram、LINE、Discord、Slack
 
 **前置条件：** OpenAI/Groq API Key，`ffmpeg`
 
@@ -260,11 +400,43 @@ brew install ffmpeg
 
 ---
 
+## 语音回复（文字转语音）
+
+将 AI 回复合成语音发送。
+
+**支持平台：** 飞书
+
+### 配置
+
+```toml
+[tts]
+enabled = true
+provider = "qwen"        # 或 "openai"
+voice = "Cherry"
+tts_mode = "voice_only"  # "voice_only" | "always"
+max_text_len = 0
+
+[tts.qwen]
+api_key = "sk-xxx"
+```
+
+### TTS 模式
+
+| 模式 | 行为 |
+|------|------|
+| `voice_only` | 仅当用户发语音时才语音回复 |
+| `always` | 始终语音回复 |
+
+切换：`/tts always` 或 `/tts voice_only`
+
+---
+
 ## 图片与文件回传
 
 当 Agent 在本地生成了图片、PDF、日志包、报表等文件，需要把结果直接发回当前聊天时，可以使用 `cc-connect send` 的附件模式。
 
 **当前支持平台：**
+- 飞书
 - Telegram
 
 ### 什么时候需要先执行 setup
@@ -355,6 +527,8 @@ cc-connect cron list
 cc-connect cron del <job-id>
 ```
 
+可选：`--session-mode new-per-run` 每次触发使用新的 agent 会话（默认 `reuse` 与旧行为一致）。`--timeout-mins N` 设置单次调度最长等待分钟数（`0` 表示不限制；省略为 30 分钟）。
+
 ### 自然语言（Claude Code）
 
 > "每天早上6点帮我总结 GitHub trending"
@@ -444,7 +618,7 @@ type = "claudecode"
 name = "my-project"
 
 [projects.agent]
-type = "claudecode"  # 或 gemini
+type = "claudecode"  # 或 codex, cursor, gemini, qoder, opencode, iflow
 
 [projects.agent.options]
 work_dir = "/path/to/project"
@@ -452,7 +626,7 @@ mode = "default"
 provider = "anthropic"
 
 [[projects.platforms]]
-type = "telegram"
+type = "feishu"  # 或 dingtalk, telegram, slack, discord, wecom, weixin, line, qq, qqbot
 
 [projects.platforms.options]
 # 平台特定配置

@@ -6,22 +6,21 @@ import (
 	"sync"
 	"time"
 
-	"github.com/chenhg5/cc-connect/core"
+	"github.com/AtticusZeller/cc-connect/core"
 )
 
 // FakeAgentSession is a fake implementation of AgentSession for testing.
 // It simulates agent behavior without calling real CLI tools.
 type FakeAgentSession struct {
-	mu           sync.RWMutex
-	sessionID    string
-	promptQueue  []string
-	events       []core.Event
-	eventIndex   int
-	closed       bool
-	alive        bool
+	mu            sync.RWMutex
+	sessionID     string
+	promptQueue   []string
+	events        []core.Event
+	closed        bool
+	alive         bool
 	responseDelay time.Duration
-	responses    []string
-	responseIdx  int
+	responses     []string
+	responseIdx   int
 }
 
 func NewFakeAgentSession(sessionID string) *FakeAgentSession {
@@ -77,19 +76,13 @@ func (s *FakeAgentSession) AddPermissionRequest(requestID, toolName, toolInput s
 
 func (s *FakeAgentSession) Send(prompt string, images []core.ImageAttachment, files []core.FileAttachment) error {
 	s.mu.Lock()
-	defer s.mu.Unlock()
-
 	if s.closed {
+		s.mu.Unlock()
 		return io.ErrClosedPipe
 	}
 
 	s.promptQueue = append(s.promptQueue, prompt)
 
-	if s.responseDelay > 0 {
-		time.Sleep(s.responseDelay)
-	}
-
-	// Auto-generate events if not already set
 	if len(s.events) == 0 {
 		if len(s.responses) > 0 && s.responseIdx < len(s.responses) {
 			resp := s.responses[s.responseIdx]
@@ -98,6 +91,12 @@ func (s *FakeAgentSession) Send(prompt string, images []core.ImageAttachment, fi
 		} else {
 			s.events = append(s.events, TestTextEvent("Processing: "+prompt), TestResultEvent("Done"))
 		}
+	}
+	delay := s.responseDelay
+	s.mu.Unlock()
+
+	if delay > 0 {
+		time.Sleep(delay)
 	}
 
 	return nil
@@ -117,16 +116,18 @@ func (s *FakeAgentSession) Events() <-chan core.Event {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
-	// Reset index for fresh consumption
-	s.eventIndex = 0
-
-	// Buffer size is len(events) + 1 for the done event
-	ch := make(chan core.Event, len(s.events)+1)
+	needsDone := len(s.events) == 0 || !s.events[len(s.events)-1].Done
+	bufSize := len(s.events)
+	if needsDone {
+		bufSize++
+	}
+	ch := make(chan core.Event, bufSize)
 	for _, e := range s.events {
 		ch <- e
 	}
-	// Send a done event if not already present
-	ch <- core.Event{Type: core.EventResult, Done: true}
+	if needsDone {
+		ch <- core.Event{Type: core.EventResult, Done: true}
+	}
 	close(ch)
 	return ch
 }
@@ -158,11 +159,12 @@ func (s *FakeAgentSession) GetPrompts() []string {
 
 // FakeAgent is a fake implementation of Agent for testing.
 type FakeAgent struct {
-	name        string
-	sessionID   string
-	session     *FakeAgentSession
-	sessions    []core.AgentSessionInfo
-	stopped     bool
+	name                 string
+	sessionID            string
+	session              *FakeAgentSession
+	preConfiguredSession *FakeAgentSession // session from NewFakeAgentWithSession
+	sessions             []core.AgentSessionInfo
+	stopped              bool
 }
 
 func NewFakeAgent(name string) *FakeAgent {
@@ -181,6 +183,13 @@ func (a *FakeAgent) Name() string {
 
 func (a *FakeAgent) StartSession(ctx context.Context, sessionID string) (core.AgentSession, error) {
 	a.sessionID = sessionID
+	// Return pre-configured session on first call (from NewFakeAgentWithSession)
+	// then create fresh sessions for subsequent calls
+	if a.preConfiguredSession != nil {
+		a.session = a.preConfiguredSession
+		a.preConfiguredSession = nil
+		return a.session, nil
+	}
 	a.session = NewFakeAgentSession(sessionID)
 	return a.session, nil
 }
@@ -203,11 +212,13 @@ func (a *FakeAgent) GetSession() *FakeAgentSession {
 }
 
 // NewFakeAgentWithSession creates a fake agent with a pre-configured session.
+// The pre-configured session is returned on the first StartSession call.
+// Subsequent StartSession calls create fresh sessions (simulating real agent behavior).
 func NewFakeAgentWithSession(name, sessionID string, session *FakeAgentSession) *FakeAgent {
 	return &FakeAgent{
-		name:     name,
-		session:  session,
-		sessionID: sessionID,
+		name:                 name,
+		preConfiguredSession: session,
+		sessionID:            sessionID,
 		sessions: []core.AgentSessionInfo{
 			{ID: sessionID, Summary: "Test session"},
 		},

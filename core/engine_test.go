@@ -291,6 +291,56 @@ func (p *stubCardPlatform) SendCard(_ context.Context, _ any, card *Card) error 
 	return nil
 }
 
+type stubCompactProgressPlatform struct {
+	stubPlatformEngine
+	style          string
+	supportPayload bool
+	previewMu      sync.Mutex
+	previewStarts  []string
+	previewEdits   []string
+}
+
+func (p *stubCompactProgressPlatform) ProgressStyle() string {
+	if p.style == "" {
+		return "compact"
+	}
+	return p.style
+}
+
+func (p *stubCompactProgressPlatform) SupportsProgressCardPayload() bool {
+	return p.supportPayload
+}
+
+func (p *stubCompactProgressPlatform) SendPreviewStart(_ context.Context, _ any, content string) (any, error) {
+	p.previewMu.Lock()
+	p.previewStarts = append(p.previewStarts, content)
+	p.previewMu.Unlock()
+	return "preview-handle", nil
+}
+
+func (p *stubCompactProgressPlatform) UpdateMessage(_ context.Context, _ any, content string) error {
+	p.previewMu.Lock()
+	p.previewEdits = append(p.previewEdits, content)
+	p.previewMu.Unlock()
+	return nil
+}
+
+func (p *stubCompactProgressPlatform) getPreviewStarts() []string {
+	p.previewMu.Lock()
+	defer p.previewMu.Unlock()
+	out := make([]string, len(p.previewStarts))
+	copy(out, p.previewStarts)
+	return out
+}
+
+func (p *stubCompactProgressPlatform) getPreviewEdits() []string {
+	p.previewMu.Lock()
+	defer p.previewMu.Unlock()
+	out := make([]string, len(p.previewEdits))
+	copy(out, p.previewEdits)
+	return out
+}
+
 type stubModelModeAgent struct {
 	stubAgent
 	model           string
@@ -386,6 +436,18 @@ func (a *stubModelModeAgent) GetReasoningEffort() string {
 
 func (a *stubModelModeAgent) AvailableReasoningEfforts() []string {
 	return []string{"low", "medium", "high", "xhigh"}
+}
+
+type namedStubModelModeAgent struct {
+	stubModelModeAgent
+	name string
+}
+
+func (a *namedStubModelModeAgent) Name() string {
+	if a.name == "" {
+		return "named-stub-model"
+	}
+	return a.name
 }
 
 type stubWorkDirAgent struct {
@@ -820,6 +882,168 @@ func TestProcessInteractiveEvents_QuietToolTurnKeepsPreviewOnFinalize(t *testing
 	}
 	if len(previewMsgs) == 0 || previewMsgs[len(previewMsgs)-1] != "update:final response" {
 		t.Fatalf("preview messages = %#v, want in-place final update", previewMsgs)
+	}
+}
+
+func TestProcessInteractiveEvents_CompactProgressCoalescesThinkingAndToolUse(t *testing.T) {
+	p := &stubCompactProgressPlatform{stubPlatformEngine: stubPlatformEngine{n: "feishu"}}
+	e := NewEngine("test", &stubAgent{}, []Platform{p}, "", LangEnglish)
+	sessionKey := "feishu:user1"
+	session := e.sessions.GetOrCreateActive(sessionKey)
+	agentSession := newControllableSession("s1")
+	state := &interactiveState{
+		agentSession: agentSession,
+		platform:     p,
+		replyCtx:     "ctx-compact",
+	}
+	e.interactiveStates[sessionKey] = state
+
+	agentSession.events <- Event{Type: EventThinking, Content: "Thinking about command"}
+	agentSession.events <- Event{Type: EventToolUse, ToolName: "Bash", ToolInput: "pwd"}
+	agentSession.events <- Event{Type: EventText, Content: "done"}
+	agentSession.events <- Event{Type: EventResult, Content: "done", Done: true}
+
+	e.processInteractiveEvents(state, session, e.sessions, sessionKey, "m1", time.Now(), nil, nil, state.replyCtx)
+
+	sent := p.getSent()
+	if len(sent) != 1 || sent[0] != "done" {
+		t.Fatalf("sent = %#v, want only final assistant reply", sent)
+	}
+
+	starts := p.getPreviewStarts()
+	if len(starts) != 1 {
+		t.Fatalf("preview starts = %d, want 1", len(starts))
+	}
+	if !strings.Contains(starts[0], "Thinking") {
+		t.Fatalf("start preview should contain thinking text, got %q", starts[0])
+	}
+
+	edits := p.getPreviewEdits()
+	if len(edits) != 1 {
+		t.Fatalf("preview edits = %d, want 1", len(edits))
+	}
+	if !strings.Contains(edits[0], "pwd") {
+		t.Fatalf("updated preview should contain tool input, got %q", edits[0])
+	}
+}
+
+func TestProcessInteractiveEvents_CardProgressUsesCardTemplate(t *testing.T) {
+	p := &stubCompactProgressPlatform{
+		stubPlatformEngine: stubPlatformEngine{n: "feishu"},
+		style:              "card",
+	}
+	e := NewEngine("test", &stubAgent{}, []Platform{p}, "", LangEnglish)
+	sessionKey := "feishu:user2"
+	session := e.sessions.GetOrCreateActive(sessionKey)
+	agentSession := newControllableSession("s2")
+	state := &interactiveState{
+		agentSession: agentSession,
+		platform:     p,
+		replyCtx:     "ctx-card",
+	}
+	e.interactiveStates[sessionKey] = state
+
+	agentSession.events <- Event{Type: EventThinking, Content: "Plan first"}
+	agentSession.events <- Event{Type: EventToolUse, ToolName: "Bash", ToolInput: "echo hi"}
+	agentSession.events <- Event{Type: EventText, Content: "done"}
+	agentSession.events <- Event{Type: EventResult, Content: "done", Done: true}
+
+	e.processInteractiveEvents(state, session, e.sessions, sessionKey, "m2", time.Now(), nil, nil, state.replyCtx)
+
+	sent := p.getSent()
+	if len(sent) != 1 || sent[0] != "done" {
+		t.Fatalf("sent = %#v, want only final assistant reply", sent)
+	}
+
+	starts := p.getPreviewStarts()
+	if len(starts) != 1 {
+		t.Fatalf("preview starts = %d, want 1", len(starts))
+	}
+	if !strings.Contains(starts[0], "**Progress**") {
+		t.Fatalf("start preview should contain fallback progress title, got %q", starts[0])
+	}
+	if !strings.Contains(starts[0], "1.") {
+		t.Fatalf("start preview should contain first item index, got %q", starts[0])
+	}
+
+	edits := p.getPreviewEdits()
+	if len(edits) != 1 {
+		t.Fatalf("preview edits = %d, want 1", len(edits))
+	}
+	if !strings.Contains(edits[0], "2.") {
+		t.Fatalf("updated preview should contain second item index, got %q", edits[0])
+	}
+	if !strings.Contains(edits[0], "echo hi") {
+		t.Fatalf("updated preview should contain tool command, got %q", edits[0])
+	}
+}
+
+func TestProcessInteractiveEvents_CardProgressUsesStructuredPayloadWhenSupported(t *testing.T) {
+	p := &stubCompactProgressPlatform{
+		stubPlatformEngine: stubPlatformEngine{n: "feishu"},
+		style:              "card",
+		supportPayload:     true,
+	}
+	e := NewEngine("test", &stubAgent{}, []Platform{p}, "", LangEnglish)
+	sessionKey := "feishu:user3"
+	session := e.sessions.GetOrCreateActive(sessionKey)
+	agentSession := newControllableSession("s3")
+	state := &interactiveState{
+		agentSession: agentSession,
+		platform:     p,
+		replyCtx:     "ctx-card-structured",
+	}
+	e.interactiveStates[sessionKey] = state
+
+	agentSession.events <- Event{Type: EventThinking, Content: "Plan first"}
+	agentSession.events <- Event{Type: EventToolUse, ToolName: "Bash", ToolInput: "echo hi"}
+	agentSession.events <- Event{Type: EventText, Content: "done"}
+	agentSession.events <- Event{Type: EventResult, Content: "done", Done: true}
+
+	e.processInteractiveEvents(state, session, e.sessions, sessionKey, "m3", time.Now(), nil, nil, state.replyCtx)
+
+	starts := p.getPreviewStarts()
+	if len(starts) != 1 {
+		t.Fatalf("preview starts = %d, want 1", len(starts))
+	}
+	if !strings.HasPrefix(starts[0], ProgressCardPayloadPrefix) {
+		t.Fatalf("start preview should be structured payload, got %q", starts[0])
+	}
+	startPayload, ok := ParseProgressCardPayload(starts[0])
+	if !ok {
+		t.Fatalf("start preview should parse as structured payload, got %q", starts[0])
+	}
+	if len(startPayload.Items) != 1 {
+		t.Fatalf("start payload items = %d, want 1", len(startPayload.Items))
+	}
+	if startPayload.Items[0].Kind != ProgressEntryThinking {
+		t.Fatalf("start payload kind = %q, want %q", startPayload.Items[0].Kind, ProgressEntryThinking)
+	}
+	if startPayload.State != ProgressCardStateRunning {
+		t.Fatalf("start payload state = %q, want %q", startPayload.State, ProgressCardStateRunning)
+	}
+
+	edits := p.getPreviewEdits()
+	if len(edits) != 2 {
+		t.Fatalf("preview edits = %d, want 2", len(edits))
+	}
+	updatePayload, ok := ParseProgressCardPayload(edits[0])
+	if !ok {
+		t.Fatalf("update preview should parse as structured payload, got %q", edits[0])
+	}
+	if len(updatePayload.Items) != 2 {
+		t.Fatalf("update payload items = %d, want 2", len(updatePayload.Items))
+	}
+	if !strings.Contains(updatePayload.Items[1].Text, "echo hi") {
+		t.Fatalf("second payload item should contain tool command, got %q", updatePayload.Items[1].Text)
+	}
+
+	finalPayload, ok := ParseProgressCardPayload(edits[1])
+	if !ok {
+		t.Fatalf("final preview should parse as structured payload, got %q", edits[1])
+	}
+	if finalPayload.State != ProgressCardStateCompleted {
+		t.Fatalf("final payload state = %q, want %q", finalPayload.State, ProgressCardStateCompleted)
 	}
 }
 
@@ -2554,6 +2778,92 @@ func TestCmdModel_DoesNotClaimSuccessWhenModelSaveFails(t *testing.T) {
 	}
 }
 
+func TestCmdModel_MultiWorkspaceUsesWorkspaceAgentAndSessions(t *testing.T) {
+	p := &stubPlatformEngine{n: "plain"}
+	globalAgent := &stubModelModeAgent{model: "gpt-4.1-mini"}
+	e := NewEngine("test", globalAgent, []Platform{p}, "", LangEnglish)
+
+	baseDir := t.TempDir()
+	bindingPath := filepath.Join(t.TempDir(), "bindings.json")
+	e.SetMultiWorkspace(baseDir, bindingPath)
+
+	wsDir := normalizeWorkspacePath(t.TempDir())
+	channelID := "C-model"
+	e.workspaceBindings.Bind("project:test", channelID, "chan", wsDir)
+
+	ws := e.workspacePool.GetOrCreate(wsDir)
+	wsAgent := &stubModelModeAgent{model: "gpt-4.1-mini"}
+	ws.agent = wsAgent
+	ws.sessions = NewSessionManager("")
+
+	msg := &Message{SessionKey: "feishu:" + channelID + ":u1", ReplyCtx: "ctx"}
+
+	globalSession := e.sessions.GetOrCreateActive(msg.SessionKey)
+	globalSession.SetAgentSessionID("global-session", "test")
+	wsSession := ws.sessions.GetOrCreateActive(msg.SessionKey)
+	wsSession.SetAgentSessionID("workspace-session", "test")
+
+	e.cmdModel(p, msg, []string{"switch", "gpt"})
+
+	if wsAgent.model != "gpt-4.1" {
+		t.Fatalf("workspace agent model = %q, want gpt-4.1", wsAgent.model)
+	}
+	if globalAgent.model != "gpt-4.1-mini" {
+		t.Fatalf("global agent model = %q, want unchanged", globalAgent.model)
+	}
+	if got := ws.sessions.GetOrCreateActive(msg.SessionKey).AgentSessionID; got != "" {
+		t.Fatalf("workspace session id = %q, want cleared", got)
+	}
+	if got := e.sessions.GetOrCreateActive(msg.SessionKey).AgentSessionID; got != "global-session" {
+		t.Fatalf("global session id = %q, want untouched", got)
+	}
+}
+
+func TestGetOrCreateWorkspaceAgent_InheritsActiveProvider(t *testing.T) {
+	agentName := "test-workspace-provider-inherit"
+	RegisterAgent(agentName, func(opts map[string]any) (Agent, error) {
+		agent := &namedStubModelModeAgent{name: agentName}
+		if model, ok := opts["model"].(string); ok {
+			agent.model = model
+		}
+		if mode, ok := opts["mode"].(string); ok {
+			agent.mode = mode
+		}
+		return agent, nil
+	})
+
+	globalAgent := &namedStubModelModeAgent{
+		name: agentName,
+		stubModelModeAgent: stubModelModeAgent{
+			model: "gpt-4.1-mini",
+			mode:  "default",
+			providers: []ProviderConfig{
+				{Name: "openai", Model: "gpt-4.1-mini"},
+				{Name: "azure", Model: "gpt-4.1"},
+			},
+			active: "azure",
+		},
+	}
+	e := NewEngine("test", globalAgent, []Platform{&stubPlatformEngine{n: "plain"}}, "", LangEnglish)
+	e.SetMultiWorkspace(t.TempDir(), filepath.Join(t.TempDir(), "bindings.json"))
+
+	wsAgentRaw, _, err := e.getOrCreateWorkspaceAgent(normalizeWorkspacePath(t.TempDir()))
+	if err != nil {
+		t.Fatalf("getOrCreateWorkspaceAgent returned error: %v", err)
+	}
+
+	wsAgent, ok := wsAgentRaw.(*namedStubModelModeAgent)
+	if !ok {
+		t.Fatalf("workspace agent type = %T, want *namedStubModelModeAgent", wsAgentRaw)
+	}
+	if wsAgent.model != "gpt-4.1-mini" {
+		t.Fatalf("workspace model = %q, want inherited global model", wsAgent.model)
+	}
+	if got := wsAgent.GetActiveProvider(); got == nil || got.Name != "azure" {
+		t.Fatalf("workspace active provider = %#v, want azure", got)
+	}
+}
+
 func TestCmdDir_ShowsCurrentDirectory(t *testing.T) {
 	p := &stubPlatformEngine{n: "plain"}
 	agent := &stubWorkDirAgent{workDir: "/tmp/project-a"}
@@ -2910,6 +3220,12 @@ func TestCmdMode_UsesInlineButtonsOnButtonOnlyPlatform(t *testing.T) {
 	}
 	if got := p.buttonRows[0][0].Data; got != "cmd:/mode default" {
 		t.Fatalf("first /mode button = %q, want %q", got, "cmd:/mode default")
+	}
+	if !strings.Contains(p.buttonContent, "Available: `default` / `yolo`") {
+		t.Fatalf("button content = %q, want dynamic mode list", p.buttonContent)
+	}
+	if strings.Contains(p.buttonContent, "`edit`") {
+		t.Fatalf("button content = %q, want no hardcoded mode list", p.buttonContent)
 	}
 }
 
@@ -4557,6 +4873,44 @@ func (s *blockingSendAgentSession) Send(_ string, _ []ImageAttachment, _ []FileA
 	return nil
 }
 
+// blockingCloseAgentSession blocks in Close until releaseClose is closed.
+// It is used to verify that /stop detaches the session and stops forwarding
+// events before the underlying agent process has fully exited.
+type blockingCloseAgentSession struct {
+	controllableAgentSession
+	closeStarted chan struct{}
+	releaseClose chan struct{}
+}
+
+func newBlockingCloseSession(id string) *blockingCloseAgentSession {
+	return &blockingCloseAgentSession{
+		controllableAgentSession: controllableAgentSession{
+			sessionID: id,
+			alive:     true,
+			events:    make(chan Event, 16),
+			closed:    make(chan struct{}),
+		},
+		closeStarted: make(chan struct{}, 1),
+		releaseClose: make(chan struct{}),
+	}
+}
+
+func (s *blockingCloseAgentSession) Close() error {
+	s.alive = false
+	select {
+	case s.closeStarted <- struct{}{}:
+	default:
+	}
+	<-s.releaseClose
+	close(s.events)
+	select {
+	case <-s.closed:
+	default:
+		close(s.closed)
+	}
+	return nil
+}
+
 // permSignalInlinePlatform wraps stubInlineButtonPlatform and signals when a
 // SendWithButtons call includes perm:allow, so tests do not read buttonRows
 // from another goroutine (race with the engine under -race).
@@ -4913,6 +5267,89 @@ func TestExecuteCardAction_ModelCleansUpWithInteractiveKey(t *testing.T) {
 	e.interactiveMu.Unlock()
 	if exists {
 		t.Error("expected interactive state to be cleaned up after /model")
+	}
+}
+
+func TestExecuteCardAction_ModelUsesWorkspaceContext(t *testing.T) {
+	p := &stubPlatformEngine{n: "plain"}
+	globalAgent := &stubModelModeAgent{model: "global-old"}
+	e := NewEngine("test", globalAgent, []Platform{p}, "", LangEnglish)
+
+	baseDir := t.TempDir()
+	bindingPath := filepath.Join(t.TempDir(), "bindings.json")
+	e.SetMultiWorkspace(baseDir, bindingPath)
+
+	wsDir := normalizeWorkspacePath(t.TempDir())
+	channelID := "channel1"
+	sessionKey := "feishu:" + channelID + ":user1"
+	e.workspaceBindings.Bind("project:test", channelID, "chan", wsDir)
+
+	ws := e.workspacePool.GetOrCreate(wsDir)
+	wsAgent := &stubModelModeAgent{model: "workspace-old"}
+	ws.agent = wsAgent
+	ws.sessions = NewSessionManager("")
+
+	interactiveKey := e.interactiveKeyForSessionKey(sessionKey)
+	e.interactiveMu.Lock()
+	e.interactiveStates[interactiveKey] = &interactiveState{}
+	e.interactiveMu.Unlock()
+
+	globalSession := e.sessions.GetOrCreateActive(sessionKey)
+	globalSession.SetAgentSessionID("global-session", "test")
+	wsSession := ws.sessions.GetOrCreateActive(sessionKey)
+	wsSession.SetAgentSessionID("workspace-session", "test")
+
+	e.executeCardAction("/model", "switch 1", sessionKey)
+
+	if wsAgent.model != "gpt-4.1" {
+		t.Fatalf("workspace agent model = %q, want gpt-4.1", wsAgent.model)
+	}
+	if globalAgent.model != "global-old" {
+		t.Fatalf("global agent model = %q, want unchanged", globalAgent.model)
+	}
+	if got := ws.sessions.GetOrCreateActive(sessionKey).AgentSessionID; got != "" {
+		t.Fatalf("workspace session id = %q, want cleared", got)
+	}
+	if got := e.sessions.GetOrCreateActive(sessionKey).AgentSessionID; got != "global-session" {
+		t.Fatalf("global session id = %q, want untouched", got)
+	}
+
+	e.interactiveMu.Lock()
+	_, exists := e.interactiveStates[interactiveKey]
+	e.interactiveMu.Unlock()
+	if exists {
+		t.Error("expected workspace interactive state to be cleaned up after /model")
+	}
+}
+
+func TestHandleCardNav_ModelCardUsesWorkspaceAgent(t *testing.T) {
+	p := &stubPlatformEngine{n: "plain"}
+	globalAgent := &stubModelModeAgent{model: "global-model"}
+	e := NewEngine("test", globalAgent, []Platform{p}, "", LangEnglish)
+
+	baseDir := t.TempDir()
+	bindingPath := filepath.Join(t.TempDir(), "bindings.json")
+	e.SetMultiWorkspace(baseDir, bindingPath)
+
+	wsDir := normalizeWorkspacePath(t.TempDir())
+	channelID := "channel-nav"
+	sessionKey := "feishu:" + channelID + ":user1"
+	e.workspaceBindings.Bind("project:test", channelID, "chan", wsDir)
+
+	ws := e.workspacePool.GetOrCreate(wsDir)
+	ws.agent = &stubModelModeAgent{model: "workspace-model"}
+	ws.sessions = NewSessionManager("")
+
+	card := e.handleCardNav("nav:/model", sessionKey)
+	if card == nil {
+		t.Fatal("expected /model card")
+	}
+	text := card.RenderText()
+	if !strings.Contains(text, "workspace-model") {
+		t.Fatalf("model card text = %q, want workspace model", text)
+	}
+	if strings.Contains(text, "global-model") {
+		t.Fatalf("model card text = %q, should not use global model", text)
 	}
 }
 
@@ -5503,6 +5940,76 @@ func TestExecuteCardAction_StopPreservesQuiet(t *testing.T) {
 	}
 	if state.agentSession != nil {
 		t.Error("expected agentSession to be nil after /stop")
+	}
+}
+
+func TestCmdStop_ReturnsWhileCloseBlockedAndStopsEventLoop(t *testing.T) {
+	p := &stubPlatformEngine{n: "test"}
+	sess := newBlockingCloseSession("stop-blocked")
+	e := NewEngine("test", &stubAgent{}, []Platform{p}, "", LangEnglish)
+	key := "test:user1"
+	session := e.sessions.GetOrCreateActive(key)
+
+	state := &interactiveState{
+		agentSession: sess,
+		platform:     p,
+		replyCtx:     "ctx",
+	}
+	e.interactiveMu.Lock()
+	e.interactiveStates[key] = state
+	e.interactiveMu.Unlock()
+
+	done := make(chan struct{})
+	go func() {
+		e.processInteractiveEvents(state, session, e.sessions, key, "msg-1", time.Now(), nil, nil, "ctx")
+		close(done)
+	}()
+
+	stopDone := make(chan struct{})
+	go func() {
+		e.cmdStop(p, &Message{SessionKey: key, ReplyCtx: "ctx"})
+		close(stopDone)
+	}()
+
+	select {
+	case <-sess.closeStarted:
+	case <-time.After(2 * time.Second):
+		t.Fatal("expected Close to start after /stop")
+	}
+
+	select {
+	case <-stopDone:
+	case <-time.After(500 * time.Millisecond):
+		t.Fatal("cmdStop blocked on Close")
+	}
+
+	select {
+	case <-done:
+	case <-time.After(2 * time.Second):
+		t.Fatal("event loop did not stop after /stop")
+	}
+
+	e.interactiveMu.Lock()
+	_, exists := e.interactiveStates[key]
+	e.interactiveMu.Unlock()
+	if exists {
+		t.Fatal("expected interactive state to be removed after /stop")
+	}
+
+	sess.events <- Event{Type: EventText, Content: "stale output"}
+	sess.events <- Event{Type: EventResult, Content: "stale result", Done: true}
+	time.Sleep(50 * time.Millisecond)
+
+	sent := p.getSent()
+	if len(sent) != 1 || sent[0] != e.i18n.T(MsgExecutionStopped) {
+		t.Fatalf("sent messages = %v, want only execution stopped", sent)
+	}
+
+	close(sess.releaseClose)
+	select {
+	case <-sess.closed:
+	case <-time.After(2 * time.Second):
+		t.Fatal("Close did not finish after release")
 	}
 }
 

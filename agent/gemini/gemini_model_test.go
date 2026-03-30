@@ -41,3 +41,18 @@ func TestConfiguredModels_BoundaryConditions(t *testing.T) {
 		})
 	}
 }
+
+func TestGetModel_ReturnsAgentModel(t *testing.T) {
+	// Dev's implementation returns a.model directly, not the provider model
+	a := &Agent{
+		model: "gemini-2.5-flash",
+		providers: []core.ProviderConfig{
+			{Name: "google", Model: "gemini-2.5-pro"},
+		},
+		activeIdx: 0,
+	}
+
+	if got := a.GetModel(); got != "gemini-2.5-flash" {
+		t.Fatalf("GetModel() = %q, want gemini-2.5-flash", got)
+	}
+}

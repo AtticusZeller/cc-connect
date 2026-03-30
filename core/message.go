@@ -86,7 +86,9 @@ func SaveFilesToDisk(workDir string, files []FileAttachment) []string {
 		return nil
 	}
 	attachDir := filepath.Join(workDir, ".cc-connect", "attachments")
-	os.MkdirAll(attachDir, 0o755)
+	if err := os.MkdirAll(attachDir, 0o755); err != nil {
+		slog.Warn("SaveFilesToDisk: mkdir failed", "dir", attachDir, "error", err)
+	}
 
 	var paths []string
 	for i, f := range files {
@@ -136,6 +138,7 @@ type Message struct {
 	Images     []ImageAttachment // attached images (if any)
 	Files      []FileAttachment  // attached files (if any)
 	Audio      *AudioAttachment  // voice message (if any)
+	ChannelKey string            // platform-provided channel identifier for workspace binding (optional)
 	ReplyCtx   any               // platform-specific context needed for replying
 	FromVoice  bool              // true if message originated from voice transcription
 }
@@ -153,17 +156,12 @@ const (
 	EventThinking          EventType = "thinking"           // thinking/processing status
 )
 
-// ContinueSession is a sentinel value passed to Agent.StartSession to indicate
-// that the agent should pick up the most recent session in the workspace
-// (equivalent to `claude --continue`), rather than resuming a specific session ID.
-const ContinueSession = "__continue__"
-
 // UserQuestion represents a structured question from AskUserQuestion.
 type UserQuestion struct {
-	Question    string             `json:"question"`
-	Header      string             `json:"header"`
+	Question    string               `json:"question"`
+	Header      string               `json:"header"`
 	Options     []UserQuestionOption `json:"options"`
-	MultiSelect bool               `json:"multiSelect"`
+	MultiSelect bool                 `json:"multiSelect"`
 }
 
 // UserQuestionOption is one choice in a UserQuestion.
@@ -180,11 +178,16 @@ type Event struct {
 	ToolInput    string         // human-readable summary of tool input
 	ToolInputRaw map[string]any // raw tool input (for EventPermissionRequest, used in allow response)
 	ToolResult   string         // populated for EventToolResult
+	ToolStatus   string         // optional status for EventToolResult (e.g. completed/failed)
+	ToolExitCode *int           // optional exit code for EventToolResult
+	ToolSuccess  *bool          // optional success flag for EventToolResult
 	SessionID    string         // agent-managed session ID for conversation continuity
 	RequestID    string         // unique request ID for EventPermissionRequest
 	Questions    []UserQuestion // populated when ToolName == "AskUserQuestion"
 	Done         bool
 	Error        error
+	InputTokens  int // token usage from agent result events
+	OutputTokens int
 }
 
 // HistoryEntry is one turn in a conversation.

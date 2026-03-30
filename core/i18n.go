@@ -119,80 +119,86 @@ func (i *I18n) SetLang(lang Language) {
 type MsgKey string
 
 const (
-	MsgStarting             MsgKey = "starting"
-	MsgThinking             MsgKey = "thinking"
-	MsgTool                 MsgKey = "tool"
-	MsgExecutionStopped     MsgKey = "execution_stopped"
-	MsgNoExecution          MsgKey = "no_execution"
-	MsgPreviousProcessing   MsgKey = "previous_processing"
-	MsgMessageQueued        MsgKey = "message_queued"
-	MsgNoToolsAllowed       MsgKey = "no_tools_allowed"
-	MsgCurrentTools         MsgKey = "current_tools"
-	MsgCurrentSession       MsgKey = "current_session"
-	MsgToolAuthNotSupported MsgKey = "tool_auth_not_supported"
-	MsgToolAllowFailed      MsgKey = "tool_allow_failed"
-	MsgToolAllowedNew       MsgKey = "tool_allowed_new"
+	MsgStarting                  MsgKey = "starting"
+	MsgThinking                  MsgKey = "thinking"
+	MsgTool                      MsgKey = "tool"
+	MsgToolResult                MsgKey = "tool_result"
+	MsgToolResultFmtStatus       MsgKey = "tool_result_fmt_status"
+	MsgToolResultFmtExit         MsgKey = "tool_result_fmt_exit"
+	MsgToolResultFmtNoOutput     MsgKey = "tool_result_fmt_no_output"
+	MsgToolResultFmtOk           MsgKey = "tool_result_fmt_ok"
+	MsgToolResultFmtFailed       MsgKey = "tool_result_fmt_failed"
+	MsgExecutionStopped          MsgKey = "execution_stopped"
+	MsgNoExecution               MsgKey = "no_execution"
+	MsgPreviousProcessing        MsgKey = "previous_processing"
+	MsgMessageQueued             MsgKey = "message_queued"
+	MsgNoToolsAllowed            MsgKey = "no_tools_allowed"
+	MsgCurrentTools              MsgKey = "current_tools"
+	MsgCurrentSession            MsgKey = "current_session"
+	MsgToolAuthNotSupported      MsgKey = "tool_auth_not_supported"
+	MsgToolAllowFailed           MsgKey = "tool_allow_failed"
+	MsgToolAllowedNew            MsgKey = "tool_allowed_new"
 	MsgError                     MsgKey = "error"
 	MsgFailedToStartAgentSession MsgKey = "failed_to_start_agent_session"
-	MsgFailedToDeleteSession    MsgKey = "failed_to_delete_session"
-	MsgEmptyResponse           MsgKey = "empty_response"
-	MsgPermissionPrompt     MsgKey = "permission_prompt"
-	MsgPermissionAllowed    MsgKey = "permission_allowed"
-	MsgPermissionApproveAll MsgKey = "permission_approve_all"
-	MsgPermissionDenied     MsgKey = "permission_denied_msg"
-	MsgPermissionHint       MsgKey = "permission_hint"
-	MsgQuietOn              MsgKey = "quiet_on"
-	MsgQuietOff             MsgKey = "quiet_off"
-	MsgQuietGlobalOn        MsgKey = "quiet_global_on"
-	MsgQuietGlobalOff       MsgKey = "quiet_global_off"
-	MsgModeChanged          MsgKey = "mode_changed"
-	MsgModeNotSupported     MsgKey = "mode_not_supported"
-	MsgSessionRestarting    MsgKey = "session_restarting"
-	MsgSessionNotStarted    MsgKey = "session_not_started"
-	MsgLangChanged          MsgKey = "lang_changed"
-	MsgLangInvalid          MsgKey = "lang_invalid"
-	MsgLangCurrent          MsgKey = "lang_current"
-	MsgUnknownCommand       MsgKey = "unknown_command"
-	MsgHelp                 MsgKey = "message_help" // change from "help", which is used now for builtin command help
-	MsgHelpTitle            MsgKey = "help_title"
-	MsgHelpSessionSection   MsgKey = "help_session_section"
-	MsgHelpAgentSection     MsgKey = "help_agent_section"
-	MsgHelpToolsSection     MsgKey = "help_tools_section"
-	MsgHelpSystemSection    MsgKey = "help_system_section"
-	MsgHelpTip              MsgKey = "help_tip"
-	MsgListTitle            MsgKey = "list_title"
-	MsgListTitlePaged       MsgKey = "list_title_paged"
-	MsgListEmpty            MsgKey = "list_empty"
-	MsgListMore             MsgKey = "list_more"
-	MsgListPageHint         MsgKey = "list_page_hint"
-	MsgListSwitchHint       MsgKey = "list_switch_hint"
-	MsgListError            MsgKey = "list_error"
-	MsgHistoryEmpty         MsgKey = "history_empty"
-	MsgNameUsage            MsgKey = "name_usage"
-	MsgNameSet              MsgKey = "name_set"
-	MsgNameNoSession        MsgKey = "name_no_session"
-	MsgProviderNotSupported MsgKey = "provider_not_supported"
-	MsgProviderNone         MsgKey = "provider_none"
-	MsgProviderCurrent      MsgKey = "provider_current"
-	MsgProviderListTitle    MsgKey = "provider_list_title"
-	MsgProviderListEmpty    MsgKey = "provider_list_empty"
-	MsgProviderSwitchHint   MsgKey = "provider_switch_hint"
-	MsgProviderNotFound     MsgKey = "provider_not_found"
-	MsgProviderSwitched     MsgKey = "provider_switched"
-	MsgProviderCleared      MsgKey = "provider_cleared"
-	MsgProviderAdded        MsgKey = "provider_added"
-	MsgProviderAddUsage     MsgKey = "provider_add_usage"
-	MsgProviderAddFailed    MsgKey = "provider_add_failed"
-	MsgProviderRemoved      MsgKey = "provider_removed"
-	MsgProviderRemoveFailed MsgKey = "provider_remove_failed"
+	MsgFailedToDeleteSession     MsgKey = "failed_to_delete_session"
+	MsgEmptyResponse             MsgKey = "empty_response"
+	MsgPermissionPrompt          MsgKey = "permission_prompt"
+	MsgPermissionAllowed         MsgKey = "permission_allowed"
+	MsgPermissionApproveAll      MsgKey = "permission_approve_all"
+	MsgPermissionDenied          MsgKey = "permission_denied_msg"
+	MsgPermissionHint            MsgKey = "permission_hint"
+	MsgQuietOn                   MsgKey = "quiet_on"
+	MsgQuietOff                  MsgKey = "quiet_off"
+	MsgQuietGlobalOn             MsgKey = "quiet_global_on"
+	MsgQuietGlobalOff            MsgKey = "quiet_global_off"
+	MsgModeChanged               MsgKey = "mode_changed"
+	MsgModeNotSupported          MsgKey = "mode_not_supported"
+	MsgSessionRestarting         MsgKey = "session_restarting"
+	MsgSessionNotStarted         MsgKey = "session_not_started"
+	MsgLangChanged               MsgKey = "lang_changed"
+	MsgLangInvalid               MsgKey = "lang_invalid"
+	MsgLangCurrent               MsgKey = "lang_current"
+	MsgUnknownCommand            MsgKey = "unknown_command"
+	MsgHelp                      MsgKey = "message_help" // change from "help", which is used now for builtin command help
+	MsgHelpTitle                 MsgKey = "help_title"
+	MsgHelpSessionSection        MsgKey = "help_session_section"
+	MsgHelpAgentSection          MsgKey = "help_agent_section"
+	MsgHelpToolsSection          MsgKey = "help_tools_section"
+	MsgHelpSystemSection         MsgKey = "help_system_section"
+	MsgHelpTip                   MsgKey = "help_tip"
+	MsgListTitle                 MsgKey = "list_title"
+	MsgListTitlePaged            MsgKey = "list_title_paged"
+	MsgListEmpty                 MsgKey = "list_empty"
+	MsgListMore                  MsgKey = "list_more"
+	MsgListPageHint              MsgKey = "list_page_hint"
+	MsgListSwitchHint            MsgKey = "list_switch_hint"
+	MsgListError                 MsgKey = "list_error"
+	MsgHistoryEmpty              MsgKey = "history_empty"
+	MsgNameUsage                 MsgKey = "name_usage"
+	MsgNameSet                   MsgKey = "name_set"
+	MsgNameNoSession             MsgKey = "name_no_session"
+	MsgProviderNotSupported      MsgKey = "provider_not_supported"
+	MsgProviderNone              MsgKey = "provider_none"
+	MsgProviderCurrent           MsgKey = "provider_current"
+	MsgProviderListTitle         MsgKey = "provider_list_title"
+	MsgProviderListEmpty         MsgKey = "provider_list_empty"
+	MsgProviderSwitchHint        MsgKey = "provider_switch_hint"
+	MsgProviderNotFound          MsgKey = "provider_not_found"
+	MsgProviderSwitched          MsgKey = "provider_switched"
+	MsgProviderCleared           MsgKey = "provider_cleared"
+	MsgProviderAdded             MsgKey = "provider_added"
+	MsgProviderAddUsage          MsgKey = "provider_add_usage"
+	MsgProviderAddFailed         MsgKey = "provider_add_failed"
+	MsgProviderRemoved           MsgKey = "provider_removed"
+	MsgProviderRemoveFailed      MsgKey = "provider_remove_failed"
 
-	MsgVoiceNotEnabled       MsgKey = "voice_not_enabled"
+	MsgVoiceNotEnabled               MsgKey = "voice_not_enabled"
 	MsgVoiceUsingPlatformRecognition MsgKey = "voice_using_platform_recognition"
-	MsgVoiceNoFFmpeg         MsgKey = "voice_no_ffmpeg"
-	MsgVoiceTranscribing     MsgKey = "voice_transcribing"
-	MsgVoiceTranscribed      MsgKey = "voice_transcribed"
-	MsgVoiceTranscribeFailed MsgKey = "voice_transcribe_failed"
-	MsgVoiceEmpty            MsgKey = "voice_empty"
+	MsgVoiceNoFFmpeg                 MsgKey = "voice_no_ffmpeg"
+	MsgVoiceTranscribing             MsgKey = "voice_transcribing"
+	MsgVoiceTranscribed              MsgKey = "voice_transcribed"
+	MsgVoiceTranscribeFailed         MsgKey = "voice_transcribe_failed"
+	MsgVoiceEmpty                    MsgKey = "voice_empty"
 
 	MsgTTSNotEnabled MsgKey = "tts_not_enabled"
 	MsgTTSStatus     MsgKey = "tts_status"
@@ -372,6 +378,18 @@ const (
 	MsgUpgradeSuccess     MsgKey = "upgrade_success"
 	MsgUpgradeDevBuild    MsgKey = "upgrade_dev_build"
 
+	MsgWebNotSupported   MsgKey = "web_not_supported"
+	MsgWebInstalling     MsgKey = "web_installing"
+	MsgWebInstallDone    MsgKey = "web_install_done"
+	MsgWebInstallSuccess MsgKey = "web_install_success"
+	MsgWebNeedRestart    MsgKey = "web_need_restart"
+	MsgWebUpgrading      MsgKey = "web_upgrading"
+	MsgWebAlreadyLatest  MsgKey = "web_already_latest"
+	MsgWebUpgradeSuccess MsgKey = "web_upgrade_success"
+	MsgWebNotInstalled   MsgKey = "web_not_installed"
+	MsgWebStatus         MsgKey = "web_status"
+	MsgWebUninstalled    MsgKey = "web_uninstalled"
+
 	MsgAliasEmpty      MsgKey = "alias_empty"
 	MsgAliasListHeader MsgKey = "alias_list_header"
 	MsgAliasAdded      MsgKey = "alias_added"
@@ -412,8 +430,11 @@ const (
 	MsgBtwSent           MsgKey = "btw_sent"
 	MsgBtwSendFailed     MsgKey = "btw_send_failed"
 
-	MsgWhoamiTitle MsgKey = "whoami_title"
-	MsgWhoamiUsage MsgKey = "whoami_usage"
+	MsgWhoamiTitle     MsgKey = "whoami_title"
+	MsgWhoamiCardTitle MsgKey = "whoami_card_title"
+	MsgWhoamiName      MsgKey = "whoami_name"
+	MsgWhoamiPlatform  MsgKey = "whoami_platform"
+	MsgWhoamiUsage     MsgKey = "whoami_usage"
 
 	MsgRelayNoBinding     MsgKey = "relay_no_binding"
 	MsgRelayBound         MsgKey = "relay_bound"
@@ -473,17 +494,22 @@ const (
 	MsgBuiltinCmdShell     MsgKey = "shell"
 	MsgBuiltinCmdDir       MsgKey = "dir"
 
-	MsgDirChanged      MsgKey = "dir_changed"
-	MsgDirCurrent      MsgKey = "dir_current"
-	MsgDirReset        MsgKey = "dir_reset"
-	MsgDirUsage        MsgKey = "dir_usage"
-	MsgDirNotSupported MsgKey = "dir_not_supported"
-	MsgDirInvalidPath  MsgKey = "dir_invalid_path"
-	MsgDirHistoryTitle MsgKey = "dir_history_title"
-	MsgDirHistoryHint  MsgKey = "dir_history_hint"
-	MsgDirInvalidIndex MsgKey = "dir_invalid_index"
-	MsgDirNoHistory    MsgKey = "dir_no_history"
-	MsgDirNoPrevious   MsgKey = "dir_no_previous"
+	MsgDirChanged          MsgKey = "dir_changed"
+	MsgDirCurrent          MsgKey = "dir_current"
+	MsgDirReset            MsgKey = "dir_reset"
+	MsgDirUsage            MsgKey = "dir_usage"
+	MsgDirNotSupported     MsgKey = "dir_not_supported"
+	MsgDirInvalidPath      MsgKey = "dir_invalid_path"
+	MsgDirHistoryTitle     MsgKey = "dir_history_title"
+	MsgDirHistoryHint      MsgKey = "dir_history_hint"
+	MsgDirInvalidIndex     MsgKey = "dir_invalid_index"
+	MsgDirNoHistory        MsgKey = "dir_no_history"
+	MsgDirNoPrevious       MsgKey = "dir_no_previous"
+	MsgDirCardTitle        MsgKey = "dir_card_title"
+	MsgDirCardPageHint     MsgKey = "dir_card_page_hint"
+	MsgDirCardEmptyHistory MsgKey = "dir_card_empty_history"
+	MsgDirCardReset        MsgKey = "dir_card_reset"
+	MsgDirCardPrev         MsgKey = "dir_card_prev"
 
 	// Multi-workspace messages
 	MsgWsNotEnabled            MsgKey = "ws_not_enabled"
@@ -536,6 +562,48 @@ var messages = map[MsgKey]map[Language]string{
 		LangTraditionalChinese: "🔧 **工具 #%d: %s**\n---\n%s",
 		LangJapanese:           "🔧 **ツール #%d: %s**\n---\n%s",
 		LangSpanish:            "🔧 **Herramienta #%d: %s**\n---\n%s",
+	},
+	MsgToolResult: {
+		LangEnglish:            "📤 **%s**\n---\n%s",
+		LangChinese:            "📤 **%s**\n---\n%s",
+		LangTraditionalChinese: "📤 **%s**\n---\n%s",
+		LangJapanese:           "📤 **%s**\n---\n%s",
+		LangSpanish:            "📤 **%s**\n---\n%s",
+	},
+	MsgToolResultFmtStatus: {
+		LangEnglish:            "Status",
+		LangChinese:            "状态",
+		LangTraditionalChinese: "狀態",
+		LangJapanese:           "ステータス",
+		LangSpanish:            "Estado",
+	},
+	MsgToolResultFmtExit: {
+		LangEnglish:            "Exit",
+		LangChinese:            "退出码",
+		LangTraditionalChinese: "結束代碼",
+		LangJapanese:           "終了コード",
+		LangSpanish:            "Salida",
+	},
+	MsgToolResultFmtNoOutput: {
+		LangEnglish:            "No output",
+		LangChinese:            "无输出",
+		LangTraditionalChinese: "無輸出",
+		LangJapanese:           "出力なし",
+		LangSpanish:            "Sin salida",
+	},
+	MsgToolResultFmtOk: {
+		LangEnglish:            "ok",
+		LangChinese:            "ok",
+		LangTraditionalChinese: "ok",
+		LangJapanese:           "ok",
+		LangSpanish:            "ok",
+	},
+	MsgToolResultFmtFailed: {
+		LangEnglish:            "failed",
+		LangChinese:            "failed",
+		LangTraditionalChinese: "failed",
+		LangJapanese:           "failed",
+		LangSpanish:            "fallido",
 	},
 	MsgExecutionStopped: {
 		LangEnglish:            "⏹ Execution stopped.",
@@ -767,7 +835,7 @@ var messages = map[MsgKey]map[Language]string{
 			"/provider [list|add|remove|switch|clear]\n  Manage API providers\n\n" +
 			"/memory [add|global|global add]\n  View/edit agent memory files\n\n" +
 			"/allow <tool>\n  Pre-allow a tool (next session)\n\n" +
-			"/model [name]\n  View/switch model\n\n" +
+			"/model [switch <name>]\n  View/switch model\n\n" +
 			"/reasoning [level]\n  View/switch reasoning effort\n\n" +
 			"/mode [name]\n  View/switch permission mode\n\n" +
 			"/lang [en|zh|zh-TW|ja|es|auto]\n  View/switch language\n\n" +
@@ -810,7 +878,7 @@ var messages = map[MsgKey]map[Language]string{
 			"/provider [list|add|remove|switch|clear]\n  管理 API Provider\n\n" +
 			"/memory [add|global|global add]\n  查看/编辑 Agent 记忆文件\n\n" +
 			"/allow <工具名>\n  预授权工具（下次会话生效）\n\n" +
-			"/model [名称]\n  查看/切换模型\n\n" +
+			"/model [switch <名称>]\n  查看/切换模型\n\n" +
 			"/reasoning [级别]\n  查看/切换推理强度\n\n" +
 			"/mode [名称]\n  查看/切换权限模式\n\n" +
 			"/lang [en|zh|zh-TW|ja|es|auto]\n  查看/切换语言\n\n" +
@@ -853,7 +921,7 @@ var messages = map[MsgKey]map[Language]string{
 			"/provider [list|add|remove|switch|clear]\n  管理 API Provider\n\n" +
 			"/memory [add|global|global add]\n  查看/編輯 Agent 記憶檔案\n\n" +
 			"/allow <工具名>\n  預授權工具（下次會話生效）\n\n" +
-			"/model [名稱]\n  查看/切換模型\n\n" +
+			"/model [switch <名稱>]\n  查看/切換模型\n\n" +
 			"/reasoning [級別]\n  查看/切換推理強度\n\n" +
 			"/mode [名稱]\n  查看/切換權限模式\n\n" +
 			"/lang [en|zh|zh-TW|ja|es|auto]\n  查看/切換語言\n\n" +
@@ -895,7 +963,7 @@ var messages = map[MsgKey]map[Language]string{
 			"/provider [list|add|remove|switch|clear]\n  API プロバイダ管理\n\n" +
 			"/memory [add|global|global add]\n  エージェントメモリの表示/編集\n\n" +
 			"/allow <ツール名>\n  ツールを事前許可（次のセッションで有効）\n\n" +
-			"/model [名前]\n  モデルの表示/切り替え\n\n" +
+			"/model [switch <名前>]\n  モデルの表示/切り替え\n\n" +
 			"/reasoning [レベル]\n  推論レベルの表示/切り替え\n\n" +
 			"/mode [名前]\n  権限モードの表示/切り替え\n\n" +
 			"/lang [en|zh|zh-TW|ja|es|auto]\n  言語の表示/切り替え\n\n" +
@@ -937,7 +1005,7 @@ var messages = map[MsgKey]map[Language]string{
 			"/provider [list|add|remove|switch|clear]\n  Gestionar proveedores API\n\n" +
 			"/memory [add|global|global add]\n  Ver/editar archivos de memoria del agente\n\n" +
 			"/allow <herramienta>\n  Pre-autorizar herramienta (próxima sesión)\n\n" +
-			"/model [nombre]\n  Ver/cambiar modelo\n\n" +
+			"/model [switch <nombre>]\n  Ver/cambiar modelo\n\n" +
 			"/reasoning [nivel]\n  Ver/cambiar nivel de razonamiento\n\n" +
 			"/mode [nombre]\n  Ver/cambiar modo de permisos\n\n" +
 			"/lang [en|zh|zh-TW|ja|es|auto]\n  Ver/cambiar idioma\n\n" +
@@ -1025,7 +1093,7 @@ var messages = map[MsgKey]map[Language]string{
 	},
 	MsgHelpAgentSection: {
 		LangEnglish: "**Agent Configuration**\n" +
-			"/model [name] — View/switch model\n" +
+			"/model [switch <name>] — View/switch model\n" +
 			"/mode [name] — View/switch permission mode\n" +
 			"/provider [list|add|...] — Manage API providers\n" +
 			"/memory [add|global|...] — View/edit memory files\n" +
@@ -1033,7 +1101,7 @@ var messages = map[MsgKey]map[Language]string{
 			"/lang [en|zh|...] — View/switch language\n" +
 			"/quiet [global] — Toggle progress messages",
 		LangChinese: "**Agent 配置**\n" +
-			"/model [名称] — 查看/切换模型\n" +
+			"/model [switch <名称>] — 查看/切换模型\n" +
 			"/mode [名称] — 查看/切换权限模式\n" +
 			"/provider [list|add|...] — 管理 API Provider\n" +
 			"/memory [add|global|...] — 查看/编辑记忆文件\n" +
@@ -1041,7 +1109,7 @@ var messages = map[MsgKey]map[Language]string{
 			"/lang [en|zh|...] — 查看/切换语言\n" +
 			"/quiet [global] — 开关进度消息",
 		LangTraditionalChinese: "**Agent 配置**\n" +
-			"/model [名稱] — 查看/切換模型\n" +
+			"/model [switch <名稱>] — 查看/切換模型\n" +
 			"/mode [名稱] — 查看/切換權限模式\n" +
 			"/provider [list|add|...] — 管理 API Provider\n" +
 			"/memory [add|global|...] — 查看/編輯記憶檔案\n" +
@@ -1049,7 +1117,7 @@ var messages = map[MsgKey]map[Language]string{
 			"/lang [en|zh|...] — 查看/切換語言\n" +
 			"/quiet [global] — 開關進度訊息",
 		LangJapanese: "**エージェント設定**\n" +
-			"/model [名前] — モデルの表示/切り替え\n" +
+			"/model [switch <名前>] — モデルの表示/切り替え\n" +
 			"/mode [名前] — 権限モードの表示/切り替え\n" +
 			"/provider [list|add|...] — API プロバイダ管理\n" +
 			"/memory [add|global|...] — メモリの表示/編集\n" +
@@ -1057,7 +1125,7 @@ var messages = map[MsgKey]map[Language]string{
 			"/lang [en|zh|...] — 言語の表示/切り替え\n" +
 			"/quiet [global] — 進捗メッセージの表示切替",
 		LangSpanish: "**Configuración del agente**\n" +
-			"/model [nombre] — Ver/cambiar modelo\n" +
+			"/model [switch <nombre>] — Ver/cambiar modelo\n" +
 			"/mode [nombre] — Ver/cambiar modo de permisos\n" +
 			"/provider [list|add|...] — Gestionar proveedores\n" +
 			"/memory [add|global|...] — Ver/editar memoria\n" +
@@ -1967,11 +2035,11 @@ var messages = map[MsgKey]map[Language]string{
 		LangSpanish:            "Modelos disponibles:\n",
 	},
 	MsgModelUsage: {
-		LangEnglish:            "Usage: `/model <number>` or `/model <model_name>`",
-		LangChinese:            "用法: `/model <序号>` 或 `/model <模型名>`",
-		LangTraditionalChinese: "用法: `/model <序號>` 或 `/model <模型名>`",
-		LangJapanese:           "使い方: `/model <番号>` または `/model <モデル名>`",
-		LangSpanish:            "Uso: `/model <número>` o `/model <nombre_modelo>`",
+		LangEnglish:            "Usage: `/model switch <number>` or `/model switch <model_name>`",
+		LangChinese:            "用法: `/model switch <序号>` 或 `/model switch <模型名>`",
+		LangTraditionalChinese: "用法: `/model switch <序號>` 或 `/model switch <模型名>`",
+		LangJapanese:           "使い方: `/model switch <番号>` または `/model switch <モデル名>`",
+		LangSpanish:            "Uso: `/model switch <número>` o `/model switch <nombre_modelo>`",
 	},
 	MsgReasoningDefault: {
 		LangEnglish:            "Current reasoning effort: (not set, using Codex default)\n",
@@ -1995,11 +2063,11 @@ var messages = map[MsgKey]map[Language]string{
 		LangSpanish:            "Uso: `/reasoning <número>` o `/reasoning <low|medium|high|xhigh>`",
 	},
 	MsgModeUsage: {
-		LangEnglish:            "\nUse `/mode <name>` to switch.\nAvailable: `default` / `edit` / `plan` / `yolo`",
-		LangChinese:            "\n使用 `/mode <名称>` 切换模式\n可用值: `default` / `edit` / `plan` / `yolo`",
-		LangTraditionalChinese: "\n使用 `/mode <名稱>` 切換模式\n可用值: `default` / `edit` / `plan` / `yolo`",
-		LangJapanese:           "\n`/mode <名前>` で切り替え\n選択肢: `default` / `edit` / `plan` / `yolo`",
-		LangSpanish:            "\nUse `/mode <nombre>` para cambiar.\nDisponibles: `default` / `edit` / `plan` / `yolo`",
+		LangEnglish:            "\nUse `/mode <name>` to switch.\nAvailable: %s",
+		LangChinese:            "\n使用 `/mode <名称>` 切换模式\n可用值: %s",
+		LangTraditionalChinese: "\n使用 `/mode <名稱>` 切換模式\n可用值: %s",
+		LangJapanese:           "\n`/mode <名前>` で切り替え\n選択肢: %s",
+		LangSpanish:            "\nUse `/mode <nombre>` para cambiar.\nDisponibles: %s",
 	},
 	MsgLangSelectPlaceholder: {
 		LangEnglish: "Select language", LangChinese: "选择语言", LangTraditionalChinese: "選擇語言",
@@ -2535,6 +2603,108 @@ var messages = map[MsgKey]map[Language]string{
 		LangJapanese:           "⚠️ 開発ビルドのため、バージョン確認ができません。ソースからビルドするか、リリース版をインストールしてください。",
 		LangSpanish:            "⚠️ Compilación de desarrollo — la verificación de versión no está disponible. Compile desde el código fuente o instale una versión publicada.",
 	},
+	MsgWebNotSupported: {
+		LangEnglish:            "⚠️ Web admin management is not available in this build.",
+		LangChinese:            "⚠️ 当前版本不支持 Web 管理后台。",
+		LangTraditionalChinese: "⚠️ 目前版本不支援 Web 管理後台。",
+		LangJapanese:           "⚠️ このビルドではWeb管理画面は利用できません。",
+		LangSpanish:            "⚠️ La administración web no está disponible en esta versión.",
+	},
+	MsgWebInstalling: {
+		LangEnglish:            "📦 Installing cc-connect-web ...",
+		LangChinese:            "📦 正在安装 cc-connect-web ...",
+		LangTraditionalChinese: "📦 正在安裝 cc-connect-web ...",
+		LangJapanese:           "📦 cc-connect-web をインストールしています...",
+		LangSpanish:            "📦 Instalando cc-connect-web ...",
+	},
+	MsgWebInstallDone: {
+		LangEnglish:            "✅ cc-connect-web **%s** installed.",
+		LangChinese:            "✅ cc-connect-web **%s** 安装完成。",
+		LangTraditionalChinese: "✅ cc-connect-web **%s** 安裝完成。",
+		LangJapanese:           "✅ cc-connect-web **%s** をインストールしました。",
+		LangSpanish:            "✅ cc-connect-web **%s** instalado.",
+	},
+	MsgWebInstallSuccess: {
+		LangEnglish: "✅ cc-connect-web **%s** installed!\n\n" +
+			"🌐 URL: %s\n🔑 Token: `%s`\n\n" +
+			"Open the URL in your browser and use the token to log in.",
+		LangChinese: "✅ cc-connect-web **%s** 安装完成！\n\n" +
+			"🌐 地址：%s\n🔑 令牌：`%s`\n\n" +
+			"在浏览器打开地址，使用令牌登录。",
+		LangTraditionalChinese: "✅ cc-connect-web **%s** 安裝完成！\n\n" +
+			"🌐 網址：%s\n🔑 權杖：`%s`\n\n" +
+			"在瀏覽器開啟網址，使用權杖登入。",
+		LangJapanese: "✅ cc-connect-web **%s** インストール完了！\n\n" +
+			"🌐 URL: %s\n🔑 トークン: `%s`\n\n" +
+			"ブラウザでURLを開き、トークンでログインしてください。",
+		LangSpanish: "✅ cc-connect-web **%s** instalado!\n\n" +
+			"🌐 URL: %s\n🔑 Token: `%s`\n\n" +
+			"Abre la URL en tu navegador y usa el token para iniciar sesión.",
+	},
+	MsgWebNeedRestart: {
+		LangEnglish:            "🔄 Restart the service with `/restart` to activate the web admin.",
+		LangChinese:            "🔄 请使用 `/restart` 重启服务以激活 Web 管理后台。",
+		LangTraditionalChinese: "🔄 請使用 `/restart` 重新啟動服務以啟動 Web 管理後台。",
+		LangJapanese:           "🔄 `/restart` でサービスを再起動して、Web管理画面を有効にしてください。",
+		LangSpanish:            "🔄 Reinicia el servicio con `/restart` para activar la administración web.",
+	},
+	MsgWebUpgrading: {
+		LangEnglish:            "⬆️ Upgrading cc-connect-web ...",
+		LangChinese:            "⬆️ 正在升级 cc-connect-web ...",
+		LangTraditionalChinese: "⬆️ 正在升級 cc-connect-web ...",
+		LangJapanese:           "⬆️ cc-connect-web をアップグレードしています...",
+		LangSpanish:            "⬆️ Actualizando cc-connect-web ...",
+	},
+	MsgWebAlreadyLatest: {
+		LangEnglish:            "✅ Already up to date (**%s**).",
+		LangChinese:            "✅ 已是最新版本（**%s**）。",
+		LangTraditionalChinese: "✅ 已是最新版本（**%s**）。",
+		LangJapanese:           "✅ すでに最新版です（**%s**）。",
+		LangSpanish:            "✅ Ya está actualizado (**%s**).",
+	},
+	MsgWebUpgradeSuccess: {
+		LangEnglish:            "✅ Upgraded cc-connect-web: **%s** → **%s**\n\nRestart with `/restart` to apply.",
+		LangChinese:            "✅ cc-connect-web 已升级：**%s** → **%s**\n\n使用 `/restart` 重启以生效。",
+		LangTraditionalChinese: "✅ cc-connect-web 已升級：**%s** → **%s**\n\n使用 `/restart` 重新啟動以生效。",
+		LangJapanese:           "✅ cc-connect-web をアップグレードしました: **%s** → **%s**\n\n`/restart` で再起動して反映してください。",
+		LangSpanish:            "✅ cc-connect-web actualizado: **%s** → **%s**\n\nReinicia con `/restart` para aplicar.",
+	},
+	MsgWebNotInstalled: {
+		LangEnglish:            "ℹ️ Web admin is not installed.\n\nUse `/web install` to install it.",
+		LangChinese:            "ℹ️ Web 管理后台尚未安装。\n\n使用 `/web install` 进行安装。",
+		LangTraditionalChinese: "ℹ️ Web 管理後台尚未安裝。\n\n使用 `/web install` 進行安裝。",
+		LangJapanese:           "ℹ️ Web管理画面はインストールされていません。\n\n`/web install` でインストールしてください。",
+		LangSpanish:            "ℹ️ La administración web no está instalada.\n\nUsa `/web install` para instalarla.",
+	},
+	MsgWebStatus: {
+		LangEnglish: "🌐 **Web Admin**\n\n" +
+			"Version: **%s**\n" +
+			"URL: %s\n\n" +
+			"Commands: `/web upgrade` · `/web uninstall`",
+		LangChinese: "🌐 **Web 管理后台**\n\n" +
+			"版本：**%s**\n" +
+			"地址：%s\n\n" +
+			"可用命令：`/web upgrade` · `/web uninstall`",
+		LangTraditionalChinese: "🌐 **Web 管理後台**\n\n" +
+			"版本：**%s**\n" +
+			"網址：%s\n\n" +
+			"可用命令：`/web upgrade` · `/web uninstall`",
+		LangJapanese: "🌐 **Web管理画面**\n\n" +
+			"バージョン: **%s**\n" +
+			"URL: %s\n\n" +
+			"コマンド: `/web upgrade` · `/web uninstall`",
+		LangSpanish: "🌐 **Administración Web**\n\n" +
+			"Versión: **%s**\n" +
+			"URL: %s\n\n" +
+			"Comandos: `/web upgrade` · `/web uninstall`",
+	},
+	MsgWebUninstalled: {
+		LangEnglish:            "✅ Web admin has been uninstalled.",
+		LangChinese:            "✅ Web 管理后台已卸载。",
+		LangTraditionalChinese: "✅ Web 管理後台已移除。",
+		LangJapanese:           "✅ Web管理画面をアンインストールしました。",
+		LangSpanish:            "✅ La administración web ha sido desinstalada.",
+	},
 	MsgAliasEmpty: {
 		LangEnglish:            "No aliases configured. Use `/alias add <trigger> <command>` to create one.",
 		LangChinese:            "暂无别名配置。使用 `/alias add <触发词> <命令>` 创建别名。",
@@ -2779,6 +2949,27 @@ var messages = map[MsgKey]map[Language]string{
 		LangTraditionalChinese: "🪪 **你的身分資訊**",
 		LangJapanese:           "🪪 **あなたの身元情報**",
 		LangSpanish:            "🪪 **Tu identidad**",
+	},
+	MsgWhoamiCardTitle: {
+		LangEnglish:            "Your Identity",
+		LangChinese:            "你的身份信息",
+		LangTraditionalChinese: "你的身分資訊",
+		LangJapanese:           "あなたの身元情報",
+		LangSpanish:            "Tu identidad",
+	},
+	MsgWhoamiName: {
+		LangEnglish:            "Name",
+		LangChinese:            "名称",
+		LangTraditionalChinese: "名稱",
+		LangJapanese:           "名前",
+		LangSpanish:            "Nombre",
+	},
+	MsgWhoamiPlatform: {
+		LangEnglish:            "Platform",
+		LangChinese:            "平台",
+		LangTraditionalChinese: "平台",
+		LangJapanese:           "プラットフォーム",
+		LangSpanish:            "Plataforma",
 	},
 	MsgWhoamiUsage: {
 		LangEnglish:            "💡 Use the `User ID` above for `allow_from` and `admin_from` in your `config.toml`.",
@@ -3225,6 +3416,41 @@ var messages = map[MsgKey]map[Language]string{
 		LangTraditionalChinese: "❌ 沒有上一個目錄記錄。",
 		LangJapanese:           "❌ 前のディレクトリが履歴にありません。",
 		LangSpanish:            "❌ No hay directorio anterior en el historial.",
+	},
+	MsgDirCardTitle: {
+		LangEnglish:            "Working directory",
+		LangChinese:            "工作目录",
+		LangTraditionalChinese: "工作目錄",
+		LangJapanese:           "作業ディレクトリ",
+		LangSpanish:            "Directorio de trabajo",
+	},
+	MsgDirCardPageHint: {
+		LangEnglish:            "Page %d/%d — use `/dir <page>` or the buttons below.",
+		LangChinese:            "第 %d/%d 页 — 可用 `/dir <页码>` 或下方按钮翻页。",
+		LangTraditionalChinese: "第 %d/%d 頁 — 可用 `/dir <頁碼>` 或下方按鈕翻頁。",
+		LangJapanese:           "%d/%d ページ — `/dir <ページ>` または下のボタンで移動。",
+		LangSpanish:            "Página %d/%d — usa `/dir <página>` o los botones.",
+	},
+	MsgDirCardEmptyHistory: {
+		LangEnglish:            "No directory history yet. Type `/dir <path>` to switch, or use **Reset** to restore the default.",
+		LangChinese:            "暂无目录历史。可发送 `/dir <路径>` 切换，或点 **重置** 恢复默认目录。",
+		LangTraditionalChinese: "暫無目錄歷史。可傳送 `/dir <路徑>` 切換，或點 **重置** 恢復預設目錄。",
+		LangJapanese:           "まだディレクトリ履歴がありません。`/dir <パス>` で切替えるか、**リセット** で既定に戻せます。",
+		LangSpanish:            "Aún no hay historial de directorios. Usa `/dir <ruta>` o **Restablecer** al valor por defecto.",
+	},
+	MsgDirCardReset: {
+		LangEnglish:            "Reset",
+		LangChinese:            "重置",
+		LangTraditionalChinese: "重置",
+		LangJapanese:           "リセット",
+		LangSpanish:            "Restablecer",
+	},
+	MsgDirCardPrev: {
+		LangEnglish:            "Previous",
+		LangChinese:            "上一目录",
+		LangTraditionalChinese: "上一目錄",
+		LangJapanese:           "前へ",
+		LangSpanish:            "Anterior",
 	},
 
 	// Multi-workspace messages

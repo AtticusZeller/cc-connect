@@ -1,5 +1,5 @@
 APP        := cc-connect
-MODULE     := github.com/AtticusZeller/cc-connect
+MODULE     := github.com/chenhg5/cc-connect
 CMD        := ./cmd/cc-connect
 DIST       := dist
 
@@ -33,8 +33,8 @@ PLATFORMS := \
 #   make build EXCLUDE=discord,dingtalk,qq,qqbot,line
 # ---------------------------------------------------------------------------
 
-ALL_AGENTS    := claudecode codex cursor gemini iflow opencode pi qoder
-ALL_PLATFORMS := feishu telegram discord slack dingtalk wecom qq qqbot line
+ALL_AGENTS    := acp claudecode codex cursor gemini iflow opencode pi qoder
+ALL_PLATFORMS := feishu telegram discord slack dingtalk wecom weixin qq qqbot line
 
 COMMA := ,
 
@@ -60,10 +60,10 @@ endif
 _BUILD_TAGS := $(strip $(_EXCLUDE_TAGS))
 _TAGS_FLAG  := $(if $(_BUILD_TAGS),-tags '$(_BUILD_TAGS)',)
 
-.PHONY: build run clean test test-fast test-full test-smoke test-e2e test-release pre-test lint release release-all
+.PHONY: build run clean test test-fast test-full test-smoke test-e2e test-release test-performance pre-test lint release release-all
 
 build:
-	go build -ldflags "$(LDFLAGS)" -o $(APP) $(CMD)
+	go build $(_TAGS_FLAG) -ldflags "$(LDFLAGS)" -o $(APP) $(CMD)
 
 run: build
 	./$(APP)
@@ -106,13 +106,16 @@ test-smoke: pre-test
 test-e2e: pre-test
 	go test -v -tags=regression ./tests/e2e/...
 
+# Performance benchmarks only
+test-performance: pre-test
+	go test -bench=. -benchmem -tags=performance ./tests/performance/...
+
 # Release test: full + performance benchmarks
 test-release: pre-test
 	go test -parallel=4 -race ./...
 	go test -parallel=4 -tags=smoke ./tests/e2e/...
 	go test -parallel=2 -tags=regression ./tests/e2e/...
-	@echo "Consider running: go test -bench=. -benchmem ./..."
-	@echo "Performance baselines should be reviewed before proceeding."
+	go test -bench=. -benchmem -tags=performance ./tests/performance/...
 
 # Legacy: runs unit tests only
 test:
@@ -130,7 +133,7 @@ release-all: clean
 		$(eval OUT    := $(DIST)/$(APP)-$(VERSION)-$(GOOS)-$(GOARCH)$(EXT)) \
 		echo "Building $(OUT)" && \
 		GOOS=$(GOOS) GOARCH=$(GOARCH) CGO_ENABLED=0 \
-			go build -ldflags "$(LDFLAGS)" -o $(OUT) $(CMD) && \
+			go build $(_TAGS_FLAG) -ldflags "$(LDFLAGS)" -o $(OUT) $(CMD) && \
 	) true
 	@echo "Packaging archives..."
 	@cd $(DIST) && for f in $(APP)-*; do \
@@ -155,5 +158,5 @@ release:
 	$(eval EXT    := $(if $(filter windows,$(GOOS)),.exe,))
 	$(eval OUT    := $(DIST)/$(APP)-$(VERSION)-$(GOOS)-$(GOARCH)$(EXT))
 	GOOS=$(GOOS) GOARCH=$(GOARCH) CGO_ENABLED=0 \
-		go build -ldflags "$(LDFLAGS)" -o $(OUT) $(CMD)
+		go build $(_TAGS_FLAG) -ldflags "$(LDFLAGS)" -o $(OUT) $(CMD)
 	@echo "Built: $(OUT)"
