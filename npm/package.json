@@ -15,13 +15,13 @@
     "chatbot",
     "bridge"
   ],
-  "homepage": "https://github.com/chenhg5/cc-connect",
+  "homepage": "https://github.com/AtticusZeller/cc-connect",
   "repository": {
     "type": "git",
-    "url": "https://github.com/chenhg5/cc-connect.git"
+    "url": "https://github.com/AtticusZeller/cc-connect.git"
   },
   "license": "MIT",
-  "author": "chenhg5",
+  "author": "AtticusZeller",
   "bin": {
     "cc-connect": "run.js"
   },
