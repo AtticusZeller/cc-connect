@@ -725,23 +725,11 @@ func summarizeInput(tool string, input any) string {
 			if old == "" && new_ == "" {
 				return fp
 			}
-			// Show short strings inline, long strings as diff
-			const inlineLimit = 100
-			if len(old) < inlineLimit && len(new_) < inlineLimit {
-				return fmt.Sprintf("%s\n- %s\n+ %s", fp, old, new_)
+			diff := computeLineDiff(old, new_)
+			if diff == "" {
+				return fp
 			}
-			oldLines := strings.Split(old, "\n")
-			newLines := strings.Split(new_, "\n")
-			var diff []string
-			diff = append(diff, fmt.Sprintf("--- %s (old)", fp))
-			for _, l := range oldLines {
-				diff = append(diff, "-"+l)
-			}
-			diff = append(diff, fmt.Sprintf("+++ %s (new)", fp))
-			for _, l := range newLines {
-				diff = append(diff, "+"+l)
-			}
-			return strings.Join(diff, "\n")
+			return fmt.Sprintf("%s\n%s", fp, diff)
 		}
 
 	case "Bash":
@@ -802,6 +790,90 @@ func parseUserQuestions(input map[string]any) []core.UserQuestion {
 		}
 	}
 	return questions
+}
+
+// computeLineDiff produces a unified diff string for old and new content.
+// It shows only the changed lines plus a few lines of context.
+func computeLineDiff(old, new_ string) string {
+	oldLines := strings.Split(old, "\n")
+	newLines := strings.Split(new_, "\n")
+
+	// Find common prefix lines
+	prefixLen := 0
+	minLen := len(oldLines)
+	if len(newLines) < minLen {
+		minLen = len(newLines)
+	}
+	for prefixLen < minLen && oldLines[prefixLen] == newLines[prefixLen] {
+		prefixLen++
+	}
+
+	// Find common suffix lines (not overlapping with prefix)
+	suffixLen := 0
+	for suffixLen < len(oldLines)-prefixLen && suffixLen < len(newLines)-prefixLen {
+		oi := len(oldLines) - 1 - suffixLen
+		ni := len(newLines) - 1 - suffixLen
+		if oldLines[oi] != newLines[ni] {
+			break
+		}
+		suffixLen++
+	}
+
+	// No actual changes
+	if prefixLen+suffixLen >= len(oldLines) && prefixLen+suffixLen >= len(newLines) {
+		return ""
+	}
+
+	// If everything differs (no common lines), show full old/new
+	if prefixLen == 0 && suffixLen == 0 {
+		var sb strings.Builder
+		for _, l := range oldLines {
+			sb.WriteString("- " + l + "\n")
+		}
+		for _, l := range newLines {
+			sb.WriteString("+ " + l + "\n")
+		}
+		return strings.TrimRight(sb.String(), "\n")
+	}
+
+	var sb strings.Builder
+	const contextN = 1
+
+	// Context: tail of common prefix
+	ctxStart := prefixLen - contextN
+	if ctxStart < 0 {
+		ctxStart = 0
+	}
+	if ctxStart > 0 {
+		sb.WriteString("...\n")
+	}
+	for i := ctxStart; i < prefixLen; i++ {
+		sb.WriteString("  " + oldLines[i] + "\n")
+	}
+
+	// Removed lines
+	if prefixLen < len(oldLines)-suffixLen {
+		for i := prefixLen; i < len(oldLines)-suffixLen; i++ {
+			sb.WriteString("- " + oldLines[i] + "\n")
+		}
+	}
+
+	// Added lines
+	if prefixLen < len(newLines)-suffixLen {
+		for i := prefixLen; i < len(newLines)-suffixLen; i++ {
+			sb.WriteString("+ " + newLines[i] + "\n")
+		}
+	}
+
+	// Context: head of common suffix
+	if suffixLen > 0 {
+		for i := len(oldLines) - suffixLen; i < len(oldLines); i++ {
+			sb.WriteString("  " + oldLines[i] + "\n")
+		}
+		sb.WriteString("...\n")
+	}
+
+	return strings.TrimRight(sb.String(), "\n")
 }
 
 func strVal(m map[string]any, key string) string {
