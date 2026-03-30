@@ -694,10 +694,56 @@ func summarizeInput(tool string, input any) string {
 	}
 
 	switch tool {
-	case "Read", "Edit", "Write":
-		if fp, ok := m["file_path"].(string); ok {
+	case "Read":
+		fp, _ := m["file_path"].(string)
+		if fp == "" {
+			fp, _ = m["path"].(string)
+		}
+		return fp
+
+	case "Write":
+		fp, _ := m["file_path"].(string)
+		if fp == "" {
+			fp, _ = m["path"].(string)
+		}
+		if fp != "" {
+			if content, ok := m["content"].(string); ok && content != "" {
+				// Return full content - let engine's chunking handle long messages
+				return "`" + fp + "`\n```\n" + content + "\n```"
+			}
 			return fp
 		}
+
+	case "Edit":
+		fp, _ := m["file_path"].(string)
+		if fp == "" {
+			fp, _ = m["path"].(string)
+		}
+		if fp != "" {
+			old, _ := m["old_str"].(string)
+			new_, _ := m["new_str"].(string)
+			if old == "" && new_ == "" {
+				return fp
+			}
+			// Show short strings inline, long strings as diff
+			const inlineLimit = 100
+			if len(old) < inlineLimit && len(new_) < inlineLimit {
+				return fmt.Sprintf("%s\n- %s\n+ %s", fp, old, new_)
+			}
+			oldLines := strings.Split(old, "\n")
+			newLines := strings.Split(new_, "\n")
+			var diff []string
+			diff = append(diff, fmt.Sprintf("--- %s (old)", fp))
+			for _, l := range oldLines {
+				diff = append(diff, "-"+l)
+			}
+			diff = append(diff, fmt.Sprintf("+++ %s (new)", fp))
+			for _, l := range newLines {
+				diff = append(diff, "+"+l)
+			}
+			return strings.Join(diff, "\n")
+		}
+
 	case "Bash":
 		if cmd, ok := m["command"].(string); ok {
 			return cmd
