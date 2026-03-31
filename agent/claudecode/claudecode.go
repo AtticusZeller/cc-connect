@@ -736,6 +736,13 @@ func summarizeInput(tool string, input any) string {
 		if cmd, ok := m["command"].(string); ok {
 			return cmd
 		}
+	case "Skill":
+		if skill, ok := m["skill"].(string); ok {
+			if args, ok := m["args"].(string); ok && args != "" {
+				return skill + " " + args
+			}
+			return skill
+		}
 	case "Grep":
 		if p, ok := m["pattern"].(string); ok {
 			return p
