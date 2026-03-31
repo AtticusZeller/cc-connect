@@ -37,6 +37,17 @@ type claudeSession struct {
 	cancel      context.CancelFunc
 	done        chan struct{}
 	alive       atomic.Bool
+
+	// pendingToolInputs stores tool inputs from tool_use content items so
+	// we can correlate them with tool_result items via tool_use_id.
+	pendingToolMu     sync.Mutex
+	pendingToolInputs map[string]toolInputEntry // keyed by tool_use_id
+}
+
+// toolInputEntry stores a tool name and its raw input for diff computation.
+type toolInputEntry struct {
+	toolName string
+	input    map[string]any
 }
 
 func newClaudeSession(ctx context.Context, workDir, model, sessionID, mode string, allowedTools []string, extraEnv []string, platformPrompt string) (*claudeSession, error) {
@@ -102,14 +113,15 @@ func newClaudeSession(ctx context.Context, workDir, model, sessionID, mode strin
 	}
 
 	cs := &claudeSession{
-		cmd:         cmd,
-		stdin:       stdin,
-		events:      make(chan core.Event, 64),
-		autoApprove: mode == "bypassPermissions",
-		workDir:     workDir,
-		ctx:         sessionCtx,
-		cancel:      cancel,
-		done:        make(chan struct{}),
+		cmd:               cmd,
+		stdin:             stdin,
+		events:            make(chan core.Event, 64),
+		autoApprove:       mode == "bypassPermissions",
+		workDir:           workDir,
+		ctx:               sessionCtx,
+		cancel:            cancel,
+		done:              make(chan struct{}),
+		pendingToolInputs: make(map[string]toolInputEntry),
 	}
 	cs.sessionID.Store(sessionID)
 	cs.alive.Store(true)
@@ -214,10 +226,28 @@ func (cs *claudeSession) handleAssistant(raw map[string]any) {
 		switch contentType {
 		case "tool_use":
 			toolName, _ := item["name"].(string)
+			toolID, _ := item["id"].(string)
 			if toolName == "AskUserQuestion" {
 				continue
 			}
-			inputSummary := summarizeInput(toolName, item["input"])
+			input, _ := item["input"].(map[string]any)
+
+			// Store Edit/Write inputs for diff computation when results arrive.
+			if (toolName == "Edit" || toolName == "Write") && toolID != "" {
+				cs.pendingToolMu.Lock()
+				cs.pendingToolInputs[toolID] = toolInputEntry{toolName: toolName, input: input}
+				if len(cs.pendingToolInputs) > 50 {
+					for k := range cs.pendingToolInputs {
+						delete(cs.pendingToolInputs, k)
+						if len(cs.pendingToolInputs) <= 40 {
+							break
+						}
+					}
+				}
+				cs.pendingToolMu.Unlock()
+			}
+
+			inputSummary := summarizeInput(toolName, input)
 			evt := core.Event{Type: core.EventToolUse, ToolName: toolName, ToolInput: inputSummary}
 			select {
 			case cs.events <- evt:
@@ -262,13 +292,113 @@ func (cs *claudeSession) handleUser(raw map[string]any) {
 		}
 		contentType, _ := item["type"].(string)
 		if contentType == "tool_result" {
+			toolUseID, _ := item["tool_use_id"].(string)
 			isError, _ := item["is_error"].(bool)
+			resultContent, _ := item["content"].(string)
+
+			var output string
+			var toolName string
+
 			if isError {
-				result, _ := item["content"].(string)
-				slog.Debug("claudeSession: tool error", "content", result)
+				slog.Debug("claudeSession: tool error", "content", resultContent)
+				output = "Error: " + resultContent
+				toolName = "error"
+			} else {
+				// Look up pending input for Edit/Write to format the result
+				cs.pendingToolMu.Lock()
+				entry, found := cs.pendingToolInputs[toolUseID]
+				if found {
+					delete(cs.pendingToolInputs, toolUseID)
+				}
+				cs.pendingToolMu.Unlock()
+
+				if found && entry.toolName == "Edit" && entry.input != nil {
+					toolName = entry.toolName
+					output = formatEditResult(entry.input, resultContent)
+				} else if found && entry.toolName == "Write" && entry.input != nil {
+					toolName = entry.toolName
+					output = formatWriteResult(entry.input, resultContent)
+				} else {
+					if found {
+						toolName = entry.toolName
+					}
+					output = resultContent
+				}
+			}
+
+			if output != "" {
+				evt := core.Event{Type: core.EventToolResult, ToolName: toolName, Content: output}
+				select {
+				case cs.events <- evt:
+				case <-cs.ctx.Done():
+					return
+				}
 			}
 		}
 	}
+}
+
+// formatEditResult formats the tool result for an Edit operation with a computed diff.
+func formatEditResult(input map[string]any, rawResult string) string {
+	fp := filePathFromInput(input)
+	oldStr, _ := input["old_str"].(string)
+	if oldStr == "" {
+		oldStr, _ = input["old_string"].(string)
+	}
+	newStr, _ := input["new_str"].(string)
+	if newStr == "" {
+		newStr, _ = input["new_string"].(string)
+	}
+
+	var sb strings.Builder
+	sb.WriteString("Edited `")
+	sb.WriteString(fp)
+	sb.WriteString("`\n")
+
+	if oldStr == "" && newStr == "" {
+		sb.WriteString(rawResult)
+		return sb.String()
+	}
+
+	sb.WriteString("```diff\n")
+	if diff := computeLineDiff(oldStr, newStr); diff != "" {
+		sb.WriteString(diff)
+	} else {
+		sb.WriteString(rawResult)
+	}
+	sb.WriteString("\n```")
+	return sb.String()
+}
+
+// formatWriteResult formats the tool result for a Write operation with file content.
+func formatWriteResult(input map[string]any, rawResult string) string {
+	fp := filePathFromInput(input)
+	content, _ := input["content"].(string)
+
+	var sb strings.Builder
+	sb.WriteString("Wrote `")
+	sb.WriteString(fp)
+	sb.WriteString("`\n")
+
+	if content != "" {
+		sb.WriteString("```\n")
+		sb.WriteString(content)
+		sb.WriteString("\n```")
+	} else {
+		sb.WriteString(rawResult)
+	}
+	return sb.String()
+}
+
+// filePathFromInput extracts the file path from a tool input map.
+func filePathFromInput(input map[string]any) string {
+	if fp, ok := input["file_path"].(string); ok {
+		return fp
+	}
+	if fp, ok := input["path"].(string); ok {
+		return fp
+	}
+	return "unknown"
 }
 
 func (cs *claudeSession) handleResult(raw map[string]any) {
