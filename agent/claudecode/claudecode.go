@@ -729,7 +729,7 @@ func summarizeInput(tool string, input any) string {
 			if diff == "" {
 				return fp
 			}
-			return fmt.Sprintf("%s\n%s", fp, diff)
+			return "`" + fp + "`\n```diff\n" + diff + "\n```"
 		}
 
 	case "Bash":
