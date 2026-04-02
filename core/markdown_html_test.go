@@ -437,6 +437,37 @@ func TestSplitMessageCodeFenceAware_ChunkDoesNotExceedMaxLen(t *testing.T) {
 	}
 }
 
+func TestSplitMessageCodeFenceAware_LongLineSplit(t *testing.T) {
+	// A single very long line that exceeds maxLen should be split into pieces
+	longLine := strings.Repeat("abcdefgh", 200) // 1600 chars
+	text := "short\n" + longLine + "\nmore text"
+	maxLen := 500
+
+	chunks := SplitMessageCodeFenceAware(text, maxLen)
+	if len(chunks) < 3 {
+		t.Fatalf("expected at least 3 chunks for long line, got %d", len(chunks))
+	}
+	for i, chunk := range chunks {
+		if len(chunk) > maxLen {
+			t.Errorf("chunk %d exceeds maxLen (%d): len=%d", i, maxLen, len(chunk))
+		}
+	}
+}
+
+func TestSplitMessageCodeFenceAware_LongLineInCodeBlock(t *testing.T) {
+	// A long line inside a code block should be split without breaking fences
+	longLine := strings.Repeat("x", 600)
+	text := "```go\n" + longLine + "\n```"
+	maxLen := 500
+
+	chunks := SplitMessageCodeFenceAware(text, maxLen)
+	for i, chunk := range chunks {
+		if len(chunk) > maxLen {
+			t.Errorf("chunk %d exceeds maxLen (%d): len=%d", i, maxLen, len(chunk))
+		}
+	}
+}
+
 func TestMarkdownToSimpleHTML_BoldItalic(t *testing.T) {
 	out := MarkdownToSimpleHTML("this is ***bold italic*** text")
 	if !strings.Contains(out, "<b><i>bold italic</i></b>") {

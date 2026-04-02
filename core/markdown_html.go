@@ -324,6 +324,7 @@ func escapeHTML(s string) string {
 // SplitMessageCodeFenceAware splits text into chunks respecting code fence boundaries.
 // When a chunk boundary falls inside a code block, the fence is closed at the end of
 // the chunk and re-opened at the start of the next chunk.
+// Individual lines that exceed maxLen are split into multiple pieces.
 func SplitMessageCodeFenceAware(text string, maxLen int) []string {
 	if len(text) <= maxLen {
 		return []string{text}
@@ -337,6 +338,23 @@ func SplitMessageCodeFenceAware(text string, maxLen int) []string {
 	currentLen := 0
 	openFence := "" // the ``` opening line, or "" if outside code block
 
+	flushChunk := func() {
+		if len(current) == 0 {
+			return
+		}
+		chunk := strings.Join(current, "\n")
+		if openFence != "" {
+			chunk += closingFence
+		}
+		chunks = append(chunks, chunk)
+		current = nil
+		currentLen = 0
+		if openFence != "" {
+			current = append(current, openFence)
+			currentLen = len(openFence) + 1
+		}
+	}
+
 	for _, line := range lines {
 		lineLen := len(line) + 1 // +1 for newline
 
@@ -347,19 +365,42 @@ func SplitMessageCodeFenceAware(text string, maxLen int) []string {
 			limit -= len(closingFence)
 		}
 
-		if currentLen+lineLen > limit && len(current) > 0 {
-			chunk := strings.Join(current, "\n")
-			if openFence != "" {
-				chunk += closingFence
-			}
-			chunks = append(chunks, chunk)
+		// Single line exceeds limit — split it into pieces
+		if lineLen > limit {
+			// Flush current chunk first
+			flushChunk()
 
-			current = nil
-			currentLen = 0
-			if openFence != "" {
-				current = append(current, openFence)
-				currentLen = len(openFence) + 1
+			tail := line
+			for len(tail) > 0 {
+				lim := maxLen
+				if openFence != "" {
+					lim -= len(closingFence)
+				}
+				take := lim - currentLen - 1 // -1 for newline
+				if take <= 0 {
+					flushChunk()
+					if openFence != "" {
+						lim = maxLen - len(closingFence)
+					} else {
+						lim = maxLen
+					}
+					take = lim - 1
+				}
+				if take > len(tail) {
+					take = len(tail)
+				}
+				current = append(current, tail[:take])
+				currentLen += take + 1
+				tail = tail[take:]
+				if currentLen >= lim {
+					flushChunk()
+				}
 			}
+			continue
+		}
+
+		if currentLen+lineLen > limit && len(current) > 0 {
+			flushChunk()
 		}
 
 		current = append(current, line)
