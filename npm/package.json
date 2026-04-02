@@ -1,6 +1,6 @@
 {
   "name": "@atticux/cc-connect",
-  "version": "1.2.2-beta.18",
+  "version": "1.2.2-beta.19",
   "description": "Bridge Claude Code and Gemini CLI to Telegram messaging platform",
   "keywords": [
     "claude-code",
