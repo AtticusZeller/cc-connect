@@ -63,14 +63,6 @@ func newClaudeSession(ctx context.Context, workDir, model, sessionID, mode strin
 	}
 
 	if systemPromptFile != "" {
-		content := core.AgentSystemPrompt()
-		if platformPrompt != "" {
-			content += "\n## Formatting\n" + platformPrompt + "\n"
-		}
-		if err := os.WriteFile(systemPromptFile, []byte(content), 0o644); err != nil {
-			cancel()
-			return nil, fmt.Errorf("claudecode: write system prompt file: %w", err)
-		}
 		args = append(args, "--append-system-prompt-file", systemPromptFile)
 	}
 
