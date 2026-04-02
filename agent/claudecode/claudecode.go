@@ -44,9 +44,10 @@ type Agent struct {
 	routerURL    string // Claude Code Router URL (e.g., "http://127.0.0.1:3456")
 	routerAPIKey string // Claude Code Router API key (optional)
 
-	providerProxy  *core.ProviderProxy // local proxy for third-party providers
-	proxyLocalURL  string              // local URL of the proxy
-	platformPrompt string              // platform-specific formatting instructions
+	providerProxy    *core.ProviderProxy // local proxy for third-party providers
+	proxyLocalURL    string              // local URL of the proxy
+	platformPrompt   string              // platform-specific formatting instructions
+	systemPromptFile string              // path to system prompt file for --append-system-prompt-file
 
 	mu sync.RWMutex
 }
@@ -72,19 +73,21 @@ func New(opts map[string]any) (core.Agent, error) {
 	// Claude Code Router support
 	routerURL, _ := opts["router_url"].(string)
 	routerAPIKey, _ := opts["router_api_key"].(string)
+	systemPromptFile, _ := opts["system_prompt_file"].(string)
 
 	if _, err := exec.LookPath("claude"); err != nil {
 		return nil, fmt.Errorf("claudecode: 'claude' CLI not found in PATH, please install Claude Code first")
 	}
 
 	return &Agent{
-		workDir:      workDir,
-		model:        model,
-		mode:         mode,
-		allowedTools: allowedTools,
-		activeIdx:    -1,
-		routerURL:    routerURL,
-		routerAPIKey: routerAPIKey,
+		workDir:          workDir,
+		model:            model,
+		mode:             mode,
+		allowedTools:     allowedTools,
+		activeIdx:        -1,
+		routerURL:        routerURL,
+		routerAPIKey:     routerAPIKey,
+		systemPromptFile: systemPromptFile,
 	}, nil
 }
 
@@ -253,9 +256,10 @@ func (a *Agent) StartSession(ctx context.Context, sessionID string) (core.AgentS
 		}
 	}
 	platformPrompt := a.platformPrompt
+	systemPromptFile := a.systemPromptFile
 	a.mu.Unlock()
 
-	return newClaudeSession(ctx, a.workDir, model, sessionID, a.mode, tools, extraEnv, platformPrompt)
+	return newClaudeSession(ctx, a.workDir, model, sessionID, a.mode, tools, extraEnv, platformPrompt, systemPromptFile)
 }
 
 func (a *Agent) ListSessions(ctx context.Context) ([]core.AgentSessionInfo, error) {
