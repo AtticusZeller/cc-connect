@@ -519,6 +519,7 @@ name = "my-backend"
 
 [projects.agent]
 type = "claudecode"
+# system_prompt_file = "/path/to/system-prompt.md"  # Path to system prompt file passed via --append-system-prompt-file; if empty, no system prompt is injected / 系统提示词文件路径，为空则不注入
 
 [projects.agent.options]
 work_dir = "/path/to/backend"

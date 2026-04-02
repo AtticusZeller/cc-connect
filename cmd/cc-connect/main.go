@@ -92,6 +92,7 @@ func main() {
 	}
 
 	configFlag := flag.String("config", "", "path to config file (default: ./config.toml or ~/.cc-connect/config.toml)")
+	systemPromptFileFlag := flag.String("system-prompt-file", "", "path to system prompt file passed to the agent via --append-system-prompt-file")
 	showVersion := flag.Bool("version", false, "print version and exit")
 	flag.Usage = printUsage
 	flag.Parse()
@@ -131,6 +132,18 @@ func main() {
 	effectiveWorkDirs := make([]string, 0, len(cfg.Projects))
 
 	for _, proj := range cfg.Projects {
+		// Resolve system prompt file path: CLI flag > config > empty.
+		spFile := proj.Agent.SystemPromptFile
+		if *systemPromptFileFlag != "" {
+			spFile = *systemPromptFileFlag
+		}
+		if spFile != "" {
+			if proj.Agent.Options == nil {
+				proj.Agent.Options = map[string]any{}
+			}
+			proj.Agent.Options["system_prompt_file"] = spFile
+		}
+
 		agent, err := core.CreateAgent(proj.Agent.Type, proj.Agent.Options)
 		if err != nil {
 			slog.Error("failed to create agent", "project", proj.Name, "error", err)

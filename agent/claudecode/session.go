@@ -39,7 +39,7 @@ type claudeSession struct {
 	alive       atomic.Bool
 }
 
-func newClaudeSession(ctx context.Context, workDir, model, sessionID, mode string, allowedTools []string, extraEnv []string, platformPrompt string) (*claudeSession, error) {
+func newClaudeSession(ctx context.Context, workDir, model, sessionID, mode string, allowedTools []string, extraEnv []string, platformPrompt, systemPromptFile string) (*claudeSession, error) {
 	sessionCtx, cancel := context.WithCancel(ctx)
 
 	args := []string{
@@ -62,11 +62,16 @@ func newClaudeSession(ctx context.Context, workDir, model, sessionID, mode strin
 		args = append(args, "--allowedTools", strings.Join(allowedTools, ","))
 	}
 
-	if sysPrompt := core.AgentSystemPrompt(); sysPrompt != "" {
+	if systemPromptFile != "" {
+		content := core.AgentSystemPrompt()
 		if platformPrompt != "" {
-			sysPrompt += "\n## Formatting\n" + platformPrompt + "\n"
+			content += "\n## Formatting\n" + platformPrompt + "\n"
 		}
-		args = append(args, "--append-system-prompt", sysPrompt)
+		if err := os.WriteFile(systemPromptFile, []byte(content), 0o644); err != nil {
+			cancel()
+			return nil, fmt.Errorf("claudecode: write system prompt file: %w", err)
+		}
+		args = append(args, "--append-system-prompt-file", systemPromptFile)
 	}
 
 	slog.Debug("claudeSession: starting", "args", core.RedactArgs(args), "dir", workDir, "mode", mode)

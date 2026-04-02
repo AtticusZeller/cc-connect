@@ -206,9 +206,10 @@ type ProjectConfig struct {
 }
 
 type AgentConfig struct {
-	Type      string           `toml:"type"`
-	Options   map[string]any   `toml:"options"`
-	Providers []ProviderConfig `toml:"providers"`
+	Type             string           `toml:"type"`
+	SystemPromptFile string           `toml:"system_prompt_file,omitempty"`
+	Options          map[string]any   `toml:"options"`
+	Providers        []ProviderConfig `toml:"providers"`
 }
 
 // ProviderModelConfig defines a selectable model entry for a provider,
@@ -1478,8 +1479,9 @@ func pickAgentTemplateForNewProject(cfg *Config, opts EnsureProjectWithFeishuOpt
 
 func cloneAgentConfig(in AgentConfig) AgentConfig {
 	out := AgentConfig{
-		Type:    in.Type,
-		Options: cloneAnyMap(in.Options),
+		Type:             in.Type,
+		SystemPromptFile: in.SystemPromptFile,
+		Options:          cloneAnyMap(in.Options),
 	}
 	if len(in.Providers) > 0 {
 		out.Providers = make([]ProviderConfig, len(in.Providers))
