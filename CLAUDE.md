@@ -206,6 +206,22 @@ Available tags: `no_acp`, `no_claudecode`, `no_codex`, `no_cursor`, `no_gemini`,
 `no_discord`, `no_slack`, `no_dingtalk`, `no_wecom`, `no_weixin`, `no_qq`, `no_qqbot`,
 `no_line`.
 
+## Release
+
+Use `scripts/release.sh` to bump version, tag, push, and publish to npm in one step:
+
+```bash
+./scripts/release.sh
+```
+
+The script:
+1. Finds the latest `v*-beta.*` tag and bumps the beta number
+2. Updates `npm/package.json` version
+3. Commits, tags, and pushes to remote
+4. Publishes to npm with `--tag beta`
+
+Prerequisite: `npm login` must have been run once on this machine.
+
 ## Pre-Commit Checklist
 
 1. **Build passes**: `go build ./...`

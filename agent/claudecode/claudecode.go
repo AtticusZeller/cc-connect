@@ -237,12 +237,17 @@ func (a *Agent) StartSession(ctx context.Context, sessionID string) (core.AgentS
 	extraEnv := a.providerEnvLocked()
 	extraEnv = append(extraEnv, a.sessionEnv...)
 
-	// Add Claude Code Router environment variables if configured
+	// Add Claude Code Router environment variables if configured.
+	// Route through the provider proxy so Anthropic-specific headers
+	// (e.g. context-management) are stripped for third-party endpoints.
 	if a.routerURL != "" {
-		extraEnv = append(extraEnv, "ANTHROPIC_BASE_URL="+a.routerURL)
-		// When using router, we need to prevent proxy interference
-		extraEnv = append(extraEnv, "NO_PROXY=127.0.0.1")
-		// Disable telemetry and cost warnings for cleaner router integration
+		if err := a.ensureProviderProxyLocked(a.routerURL, ""); err != nil {
+			slog.Error("providerproxy: failed to start for router", "error", err)
+			extraEnv = append(extraEnv, "ANTHROPIC_BASE_URL="+a.routerURL)
+		} else {
+			extraEnv = append(extraEnv, "ANTHROPIC_BASE_URL="+a.proxyLocalURL)
+			extraEnv = append(extraEnv, "NO_PROXY=127.0.0.1")
+		}
 		extraEnv = append(extraEnv, "DISABLE_TELEMETRY=true")
 		extraEnv = append(extraEnv, "DISABLE_COST_WARNINGS=true")
 	}
