@@ -47,7 +47,7 @@ type Agent struct {
 	providerProxy    *core.ProviderProxy // local proxy for third-party providers
 	proxyLocalURL    string              // local URL of the proxy
 	platformPrompt   string              // platform-specific formatting instructions
-	systemPromptFile string              // path to system prompt file for --append-system-prompt-file
+	systemPromptFile string              // path to system prompt file for --system-prompt-file
 
 	mu sync.RWMutex
 }

@@ -63,7 +63,7 @@ func newClaudeSession(ctx context.Context, workDir, model, sessionID, mode strin
 	}
 
 	if systemPromptFile != "" {
-		args = append(args, "--append-system-prompt-file", systemPromptFile)
+		args = append(args, "--system-prompt-file", systemPromptFile)
 	}
 
 	slog.Debug("claudeSession: starting", "args", core.RedactArgs(args), "dir", workDir, "mode", mode)
