@@ -147,17 +147,40 @@ func (r *CommandRegistry) Resolve(name string) (*CustomCommand, bool) {
 			continue
 		}
 		for _, candidate := range candidates {
-			// Try .md first (takes priority when accepted)
+			// Try flat file first (e.g. daily-init.toml)
+			// and nested subdirectory (e.g. daily/init.toml).
+			tryPaths := []string{candidate + ".toml"}
 			if r.acceptsExt(".md") {
-				mdPath := filepath.Join(dir, candidate+".md")
-				absPath, err := filepath.Abs(mdPath)
-				if err == nil && strings.HasPrefix(absPath, absDir+string(filepath.Separator)) {
-					data, err := os.ReadFile(mdPath)
+				tryPaths = append([]string{candidate + ".md"}, tryPaths...)
+			}
+			// Also try splitting on hyphens/underscores as subdirectory path:
+			// "daily-init" → "daily/init" for nested file discovery.
+			normalized := strings.ReplaceAll(candidate, "-", string(filepath.Separator))
+			if normalized != candidate {
+				if r.acceptsExt(".md") {
+					tryPaths = append(tryPaths, normalized+".md")
+				}
+				if r.acceptsExt(".toml") {
+					tryPaths = append(tryPaths, normalized+".toml")
+				}
+			}
+
+			for _, relPath := range tryPaths {
+				fullPath := filepath.Join(dir, relPath)
+				absPath, err := filepath.Abs(fullPath)
+				if err != nil || !strings.HasPrefix(absPath, absDir+string(filepath.Separator)) {
+					continue
+				}
+				ext := filepath.Ext(relPath)
+				relBase := strings.TrimSuffix(relPath, ext)
+				cmdName := nameFromRelPath(relBase)
+
+				if ext == ".md" {
+					data, err := os.ReadFile(fullPath)
 					if err == nil {
 						content := strings.TrimSpace(string(data))
 						if content != "" {
-							cmdName := nameFromRelPath(candidate)
-							slog.Debug("command: loaded agent command file", "path", mdPath)
+							slog.Debug("command: loaded agent command file", "path", fullPath)
 							return &CustomCommand{
 								Name:   cmdName,
 								Prompt: content,
@@ -165,14 +188,8 @@ func (r *CommandRegistry) Resolve(name string) (*CustomCommand, bool) {
 							}, true
 						}
 					}
-				}
-			}
-			// Try .toml (Gemini CLI format)
-			if r.acceptsExt(".toml") {
-				tomlPath := filepath.Join(dir, candidate+".toml")
-				absPath, err := filepath.Abs(tomlPath)
-				if err == nil && strings.HasPrefix(absPath, absDir+string(filepath.Separator)) {
-					if cmd := resolveTomlFile(tomlPath, nameFromRelPath(candidate)); cmd != nil {
+				} else if ext == ".toml" {
+					if cmd := resolveTomlFile(fullPath, cmdName); cmd != nil {
 						return cmd, true
 					}
 				}
