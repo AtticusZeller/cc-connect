@@ -628,9 +628,11 @@ func (a *Agent) ListProviders() []core.ProviderConfig {
 //  1. We use ANTHROPIC_AUTH_TOKEN (Bearer) instead of ANTHROPIC_API_KEY
 //     (x-api-key). Claude Code validates API keys against api.anthropic.com
 //     which hangs for third-party endpoints; Bearer auth skips that check.
-//  2. If the provider sets thinking (e.g. "disabled"), a local reverse proxy
-//     rewrites the thinking parameter for compatibility with providers that
-//     don't support adaptive thinking.
+//  2. A local reverse proxy is always started to strip Anthropic-specific
+//     headers (e.g. context-management) that third-party providers don't support.
+//  3. If the provider also sets thinking (e.g. "disabled"), the proxy rewrites
+//     the thinking parameter for compatibility with providers that don't support
+//     adaptive thinking.
 func (a *Agent) providerEnvLocked() []string {
 	if a.activeIdx < 0 || a.activeIdx >= len(a.providers) {
 		a.stopProviderProxyLocked()
@@ -640,17 +642,12 @@ func (a *Agent) providerEnvLocked() []string {
 	var env []string
 
 	if p.BaseURL != "" {
-		if p.Thinking != "" {
-			if err := a.ensureProviderProxyLocked(p.BaseURL, p.Thinking); err != nil {
-				slog.Error("providerproxy: failed to start", "error", err)
-				env = append(env, "ANTHROPIC_BASE_URL="+p.BaseURL)
-			} else {
-				env = append(env, "ANTHROPIC_BASE_URL="+a.proxyLocalURL)
-				env = append(env, "NO_PROXY=127.0.0.1")
-			}
-		} else {
-			a.stopProviderProxyLocked()
+		if err := a.ensureProviderProxyLocked(p.BaseURL, p.Thinking); err != nil {
+			slog.Error("providerproxy: failed to start", "error", err)
 			env = append(env, "ANTHROPIC_BASE_URL="+p.BaseURL)
+		} else {
+			env = append(env, "ANTHROPIC_BASE_URL="+a.proxyLocalURL)
+			env = append(env, "NO_PROXY=127.0.0.1")
 		}
 		if p.APIKey != "" {
 			env = append(env, "ANTHROPIC_AUTH_TOKEN="+p.APIKey)

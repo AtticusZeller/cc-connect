@@ -18,9 +18,13 @@ import (
 // ProviderProxy is a lightweight local reverse proxy that rewrites
 // incompatible Anthropic API fields for third-party providers.
 //
-// Some providers (e.g. SiliconFlow) don't support thinking.type "adaptive"
-// sent by Claude Code 2.x. The proxy rewrites the thinking field to
-// the configured override value before forwarding.
+// It performs two rewrites:
+//  1. Strips "context-management-*" entries from the anthropic-beta header,
+//     since third-party providers (e.g. OpenRouter) don't support Anthropic's
+//     context management feature.
+//  2. If thinkingOverride is set, rewrites thinking.type "adaptive" to the
+//     configured value for providers that don't support adaptive thinking
+//     (e.g. SiliconFlow).
 type ProviderProxy struct {
 	targetURL        string
 	thinkingOverride string
@@ -31,7 +35,8 @@ type ProviderProxy struct {
 
 // NewProviderProxy creates and starts a local reverse proxy for the
 // given upstream URL. thinkingOverride controls what thinking.type to
-// rewrite "adaptive" to (e.g. "disabled" or "enabled").
+// rewrite "adaptive" to (e.g. "disabled" or "enabled"); pass "" to skip
+// thinking rewrites.
 // Returns the local URL to use as ANTHROPIC_BASE_URL.
 func NewProviderProxy(targetURL, thinkingOverride string) (*ProviderProxy, string, error) {
 	target, err := url.Parse(strings.TrimRight(targetURL, "/"))
@@ -55,7 +60,8 @@ func NewProviderProxy(targetURL, thinkingOverride string) (*ProviderProxy, strin
 	override := thinkingOverride
 	mux := http.NewServeMux()
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		if r.Method == http.MethodPost && strings.HasSuffix(r.URL.Path, "/messages") {
+		stripContextManagement(r)
+		if override != "" && r.Method == http.MethodPost && strings.HasSuffix(r.URL.Path, "/messages") {
 			rewriteThinkingInRequest(r, override)
 		}
 		proxy.ServeHTTP(w, r)
@@ -88,6 +94,32 @@ func (pp *ProviderProxy) Close() {
 	pp.once.Do(func() {
 		pp.server.Close()
 	})
+}
+
+// stripContextManagement removes context-management entries from the
+// anthropic-beta header. Third-party providers (e.g. OpenRouter) don't
+// support Anthropic's context management feature and return 400 if the
+// header is present.
+func stripContextManagement(r *http.Request) {
+	values := r.Header.Values("anthropic-beta")
+	if len(values) == 0 {
+		return
+	}
+
+	var kept []string
+	for _, v := range values {
+		for _, part := range strings.Split(v, ",") {
+			part = strings.TrimSpace(part)
+			if part != "" && !strings.HasPrefix(part, "context-management") {
+				kept = append(kept, part)
+			}
+		}
+	}
+
+	r.Header.Del("anthropic-beta")
+	if len(kept) > 0 {
+		r.Header.Set("anthropic-beta", strings.Join(kept, ","))
+	}
 }
 
 // rewriteThinkingInRequest reads the request body and rewrites
