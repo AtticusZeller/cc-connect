@@ -138,7 +138,7 @@ func (gs *geminiSession) Send(prompt string, images []core.ImageAttachment, file
 		fullPrompt = strings.Join(fileRefs, " ") + " " + fullPrompt
 	}
 
-	args = append(args, "-p", fullPrompt)
+	args = append(args, "--prompt="+fullPrompt)
 
 	// Add timeout for each turn to prevent hanging processes
 	var cancel context.CancelFunc
