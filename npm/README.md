@@ -1,6 +1,6 @@
 # cc-connect
 
-Bridge local AI coding agents (Claude Code, Gemini CLI) to messaging platforms (Telegram).
+Bridge local AI coding agents (Claude Code, Codex, Gemini CLI) to messaging platforms.
 
 Chat with your AI dev assistant from anywhere.
 

@@ -29,6 +29,7 @@ type codexSession struct {
 	effort    string
 	mode      string
 	extraEnv  []string
+	promptPfx string
 	events    chan core.Event
 	threadID  atomic.Value // stores string — Codex thread_id
 	ctx       context.Context
@@ -45,19 +46,20 @@ type codexSession struct {
 var codexSessionCloseTimeout = 8 * time.Second
 var codexSessionForceKillWait = 2 * time.Second
 
-func newCodexSession(ctx context.Context, workDir, model, effort, mode, resumeID string, extraEnv []string) (*codexSession, error) {
+func newCodexSession(ctx context.Context, workDir, model, effort, mode, resumeID string, extraEnv []string, platformPrompt string) (*codexSession, error) {
 	sessionCtx, cancel := context.WithCancel(ctx)
 
 	cs := &codexSession{
-		workDir:  workDir,
-		model:    model,
-		effort:   effort,
-		mode:     mode,
-		extraEnv: extraEnv,
-		events:   make(chan core.Event, 64),
-		ctx:      sessionCtx,
-		cancel:   cancel,
-		cmds:     make(map[*exec.Cmd]struct{}),
+		workDir:   workDir,
+		model:     model,
+		effort:    effort,
+		mode:      mode,
+		extraEnv:  extraEnv,
+		promptPfx: strings.TrimSpace(platformPrompt),
+		events:    make(chan core.Event, 64),
+		ctx:       sessionCtx,
+		cancel:    cancel,
+		cmds:      make(map[*exec.Cmd]struct{}),
 	}
 	cs.alive.Store(true)
 
@@ -79,6 +81,8 @@ func (cs *codexSession) Send(prompt string, images []core.ImageAttachment, files
 	if !cs.alive.Load() {
 		return fmt.Errorf("session is closed")
 	}
+
+	prompt = cs.injectPlatformPrompt(prompt)
 
 	prompt, imagePaths, err := cs.stageImages(prompt, images)
 	if err != nil {
@@ -407,7 +411,7 @@ func (cs *codexSession) handleItemStarted(raw map[string]any) {
 	case "function_call":
 		name, _ := item["name"].(string)
 		args, _ := item["arguments"].(string)
-		evt := core.Event{Type: core.EventToolUse, ToolName: name, ToolInput: args}
+		evt := core.Event{Type: core.EventToolUse, ToolName: codexToolDisplayName(name), ToolInput: codexSummarizeFunctionArgs(name, args)}
 		select {
 		case cs.events <- evt:
 		case <-cs.ctx.Done():
@@ -483,7 +487,7 @@ func (cs *codexSession) handleItemCompleted(raw map[string]any) {
 		)
 		evt := core.Event{
 			Type:        core.EventToolResult,
-			ToolName:    name,
+			ToolName:    codexToolDisplayName(name),
 			ToolResult:  truncate(strings.TrimSpace(output), 500),
 			ToolStatus:  strings.TrimSpace(status),
 			ToolSuccess: &success,
@@ -522,6 +526,14 @@ func (cs *codexSession) handleItemCompleted(raw map[string]any) {
 // For web_search, it reads action.queries[] or falls back to the top-level query.
 func codexExtractToolInput(item map[string]any) string {
 	if action, ok := item["action"].(map[string]any); ok {
+		if op, _ := action["operation"].(string); op != "" {
+			if path, _ := action["path"].(string); path != "" {
+				return op + " " + path
+			}
+			if target, _ := action["target"].(string); target != "" {
+				return op + " " + target
+			}
+		}
 		if queries, ok := action["queries"].([]any); ok && len(queries) > 0 {
 			var parts []string
 			for _, q := range queries {
@@ -552,6 +564,125 @@ func codexToolSuccess(status string, exitCode *int) bool {
 		return *exitCode == 0
 	}
 	return s == "completed" || s == "success" || s == "succeeded" || s == "ok"
+}
+
+func (cs *codexSession) injectPlatformPrompt(prompt string) string {
+	if cs.promptPfx == "" {
+		return prompt
+	}
+	if strings.TrimSpace(prompt) == "" {
+		return cs.promptPfx
+	}
+	return cs.promptPfx + "\n\n" + prompt
+}
+
+func codexToolDisplayName(name string) string {
+	name = strings.TrimSpace(name)
+	switch name {
+	case "exec_command":
+		return "Bash"
+	case "":
+		return "Tool"
+	default:
+		return name
+	}
+}
+
+func codexSummarizeFunctionArgs(name, args string) string {
+	args = strings.TrimSpace(args)
+	if args == "" {
+		return ""
+	}
+
+	var parsed any
+	if err := json.Unmarshal([]byte(args), &parsed); err != nil {
+		return args
+	}
+
+	switch name {
+	case "exec_command":
+		if m, ok := parsed.(map[string]any); ok {
+			if cmd, _ := m["cmd"].(string); cmd != "" {
+				return cmd
+			}
+		}
+	case "view_image":
+		if m, ok := parsed.(map[string]any); ok {
+			if path, _ := m["path"].(string); path != "" {
+				return path
+			}
+		}
+	case "read_mcp_resource":
+		if m, ok := parsed.(map[string]any); ok {
+			server, _ := m["server"].(string)
+			uri, _ := m["uri"].(string)
+			switch {
+			case server != "" && uri != "":
+				return server + ": " + uri
+			case uri != "":
+				return uri
+			}
+		}
+	}
+
+	if m, ok := parsed.(map[string]any); ok {
+		if summary := codexSummarizeMapArgs(m); summary != "" {
+			return summary
+		}
+	}
+
+	return args
+}
+
+func codexSummarizeMapArgs(m map[string]any) string {
+	for _, key := range []string{"command", "cmd", "query", "pattern", "path", "file_path", "url", "uri", "message", "prompt"} {
+		if s, _ := m[key].(string); s != "" {
+			return s
+		}
+	}
+
+	if queries, ok := m["queries"].([]any); ok && len(queries) > 0 {
+		var parts []string
+		for _, q := range queries {
+			switch v := q.(type) {
+			case string:
+				if v != "" {
+					parts = append(parts, v)
+				}
+			case map[string]any:
+				if s, _ := v["q"].(string); s != "" {
+					parts = append(parts, s)
+				}
+			}
+		}
+		if len(parts) > 0 {
+			return strings.Join(parts, "\n")
+		}
+	}
+
+	if tasks, ok := m["tool_uses"].([]any); ok && len(tasks) > 0 {
+		lines := make([]string, 0, len(tasks))
+		for _, task := range tasks {
+			tm, ok := task.(map[string]any)
+			if !ok {
+				continue
+			}
+			toolName, _ := tm["recipient_name"].(string)
+			params, _ := tm["parameters"].(map[string]any)
+			summary := codexSummarizeMapArgs(params)
+			switch {
+			case toolName != "" && summary != "":
+				lines = append(lines, toolName+": "+summary)
+			case toolName != "":
+				lines = append(lines, toolName)
+			}
+		}
+		if len(lines) > 0 {
+			return strings.Join(lines, "\n")
+		}
+	}
+
+	return ""
 }
 
 // RespondPermission is a no-op for Codex — permissions are handled via CLI flags.

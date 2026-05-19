@@ -37,7 +37,7 @@ func TestAvailableReasoningEfforts_ExcludesMinimal(t *testing.T) {
 }
 
 func TestBuildExecArgs_IncludesReasoningEffort(t *testing.T) {
-	cs, err := newCodexSession(context.Background(), "/tmp/project", "o3", "high", "full-auto", "", nil)
+	cs, err := newCodexSession(context.Background(), "/tmp/project", "o3", "high", "full-auto", "", nil, "")
 	if err != nil {
 		t.Fatalf("newCodexSession: %v", err)
 	}
@@ -68,7 +68,7 @@ func TestBuildExecArgs_IncludesReasoningEffort(t *testing.T) {
 }
 
 func TestBuildExecArgs_ResumeOmitsCdFlag(t *testing.T) {
-	cs, err := newCodexSession(context.Background(), "/tmp/project", "", "", "full-auto", "thread-abc", nil)
+	cs, err := newCodexSession(context.Background(), "/tmp/project", "", "", "full-auto", "thread-abc", nil, "")
 	if err != nil {
 		t.Fatalf("newCodexSession: %v", err)
 	}
@@ -108,7 +108,7 @@ func TestSend_WithImages_PassesImageArgsAndDefaultPrompt(t *testing.T) {
 	t.Setenv("CODEX_ARGS_FILE", argsFile)
 	t.Setenv("PATH", binDir+string(os.PathListSeparator)+os.Getenv("PATH"))
 
-	cs, err := newCodexSession(context.Background(), workDir, "", "", "", "", nil)
+	cs, err := newCodexSession(context.Background(), workDir, "", "", "", "", nil, "")
 	if err != nil {
 		t.Fatalf("newCodexSession: %v", err)
 	}
@@ -168,7 +168,7 @@ func TestSend_ResumeWithImages_PlacesSessionBeforeImageFlags(t *testing.T) {
 	t.Setenv("CODEX_ARGS_FILE", argsFile)
 	t.Setenv("PATH", binDir+string(os.PathListSeparator)+os.Getenv("PATH"))
 
-	cs, err := newCodexSession(context.Background(), workDir, "", "", "", "thread-123", nil)
+	cs, err := newCodexSession(context.Background(), workDir, "", "", "", "thread-123", nil, "")
 	if err != nil {
 		t.Fatalf("newCodexSession: %v", err)
 	}
@@ -218,7 +218,7 @@ func TestSend_UsesStdinForMultilinePrompt(t *testing.T) {
 	t.Setenv("CODEX_STDIN_FILE", stdinFile)
 	t.Setenv("PATH", binDir+string(os.PathListSeparator)+os.Getenv("PATH"))
 
-	cs, err := newCodexSession(context.Background(), workDir, "", "", "", "thread-stdin", nil)
+	cs, err := newCodexSession(context.Background(), workDir, "", "", "", "thread-stdin", nil, "")
 	if err != nil {
 		t.Fatalf("newCodexSession: %v", err)
 	}
@@ -272,7 +272,7 @@ func TestSend_HandlesLargeJSONLines(t *testing.T) {
 	t.Setenv("CODEX_PAYLOAD_FILE", payloadFile)
 	t.Setenv("PATH", binDir+string(os.PathListSeparator)+os.Getenv("PATH"))
 
-	cs, err := newCodexSession(context.Background(), workDir, "", "", "", "", nil)
+	cs, err := newCodexSession(context.Background(), workDir, "", "", "", "", nil, "")
 	if err != nil {
 		t.Fatalf("newCodexSession: %v", err)
 	}
@@ -409,7 +409,7 @@ func indexOf(args []string, target string) int {
 }
 
 func TestCodexSession_ContinueSessionTreatedAsFresh(t *testing.T) {
-	s, err := newCodexSession(context.Background(), "/tmp", "", "", "full-auto", core.ContinueSession, nil)
+	s, err := newCodexSession(context.Background(), "/tmp", "", "", "full-auto", core.ContinueSession, nil, "")
 	if err != nil {
 		t.Fatalf("newCodexSession: %v", err)
 	}
@@ -417,6 +417,51 @@ func TestCodexSession_ContinueSessionTreatedAsFresh(t *testing.T) {
 
 	if got := s.CurrentSessionID(); got != "" {
 		t.Errorf("ContinueSession should be treated as fresh: threadID = %q, want empty", got)
+	}
+}
+
+func TestSend_PrependsPlatformPrompt(t *testing.T) {
+	workDir := t.TempDir()
+	binDir := filepath.Join(workDir, "bin")
+	if err := os.MkdirAll(binDir, 0o755); err != nil {
+		t.Fatalf("mkdir bin: %v", err)
+	}
+
+	stdinFile := filepath.Join(workDir, "stdin.txt")
+	script := "#!/bin/sh\n" +
+		"cat > \"$CODEX_STDIN_FILE\"\n" +
+		"printf '%s\\n' '{\"type\":\"turn.completed\"}'\n"
+	scriptPath := filepath.Join(binDir, "codex")
+	if err := os.WriteFile(scriptPath, []byte(script), 0o755); err != nil {
+		t.Fatalf("write fake codex: %v", err)
+	}
+
+	t.Setenv("CODEX_STDIN_FILE", stdinFile)
+	t.Setenv("PATH", binDir+string(os.PathListSeparator)+os.Getenv("PATH"))
+
+	cs, err := newCodexSession(context.Background(), workDir, "", "", "", "", nil, "Use Telegram-safe markdown.")
+	if err != nil {
+		t.Fatalf("newCodexSession: %v", err)
+	}
+	defer cs.Close()
+
+	if err := cs.Send("hello", nil, nil); err != nil {
+		t.Fatalf("Send: %v", err)
+	}
+
+	waitForFileEquals(t, stdinFile, "Use Telegram-safe markdown.\n\nhello")
+}
+
+func TestCodexSummarizeFunctionArgs(t *testing.T) {
+	got := codexSummarizeFunctionArgs("exec_command", `{"cmd":"go test ./...","yield_time_ms":1000}`)
+	if got != "go test ./..." {
+		t.Fatalf("exec_command summary = %q, want %q", got, "go test ./...")
+	}
+
+	got = codexSummarizeFunctionArgs("parallel", `{"tool_uses":[{"recipient_name":"functions.exec_command","parameters":{"cmd":"git status --short"}},{"recipient_name":"functions.exec_command","parameters":{"cmd":"go test ./..."}}]}`)
+	want := "functions.exec_command: git status --short\nfunctions.exec_command: go test ./..."
+	if got != want {
+		t.Fatalf("parallel summary = %q, want %q", got, want)
 	}
 }
 
@@ -451,7 +496,7 @@ func TestClose_ForceKillsProcessGroupAfterGracefulTimeout(t *testing.T) {
 		codexSessionForceKillWait = oldForceKillWait
 	})
 
-	cs, err := newCodexSession(context.Background(), workDir, "", "", "", "", nil)
+	cs, err := newCodexSession(context.Background(), workDir, "", "", "", "", nil, "")
 	if err != nil {
 		t.Fatalf("newCodexSession: %v", err)
 	}
@@ -518,7 +563,7 @@ func TestClose_ForceKillsAllTrackedProcessesAfterCmdOverwrite(t *testing.T) {
 		codexSessionForceKillWait = oldForceKillWait
 	})
 
-	cs, err := newCodexSession(context.Background(), workDir, "", "", "", "", nil)
+	cs, err := newCodexSession(context.Background(), workDir, "", "", "", "", nil, "")
 	if err != nil {
 		t.Fatalf("newCodexSession: %v", err)
 	}

@@ -35,6 +35,7 @@ type Agent struct {
 	providers       []core.ProviderConfig
 	activeIdx       int // -1 = no provider set
 	sessionEnv      []string
+	platformPrompt  string
 	mu              sync.RWMutex
 }
 
@@ -289,11 +290,18 @@ func (a *Agent) SetSessionEnv(env []string) {
 	a.sessionEnv = env
 }
 
+func (a *Agent) SetPlatformPrompt(prompt string) {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	a.platformPrompt = prompt
+}
+
 func (a *Agent) StartSession(ctx context.Context, sessionID string) (core.AgentSession, error) {
 	a.mu.Lock()
 	mode := a.mode
 	model := a.model
 	reasoningEffort := a.reasoningEffort
+	platformPrompt := a.platformPrompt
 	extraEnv := a.providerEnvLocked()
 	extraEnv = append(extraEnv, a.sessionEnv...)
 	if a.activeIdx >= 0 && a.activeIdx < len(a.providers) {
@@ -303,7 +311,7 @@ func (a *Agent) StartSession(ctx context.Context, sessionID string) (core.AgentS
 	}
 	a.mu.Unlock()
 
-	return newCodexSession(ctx, a.workDir, model, reasoningEffort, mode, sessionID, extraEnv)
+	return newCodexSession(ctx, a.workDir, model, reasoningEffort, mode, sessionID, extraEnv, platformPrompt)
 }
 
 func (a *Agent) ListSessions(_ context.Context) ([]core.AgentSessionInfo, error) {
